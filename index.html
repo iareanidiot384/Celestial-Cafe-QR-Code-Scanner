@@ -39,8 +39,28 @@
             width: 100% !important;
         }
         
+        /* Important fix for the iOS squashed scan area */
         #reader video {
             object-fit: cover !important;
+            height: 100% !important;
+            width: 100% !important;
+        }
+        
+        /* Force the reader container to be square */
+        #readerContainer {
+            position: relative;
+            width: 100%;
+            padding-bottom: 100%; /* Creates a square aspect ratio */
+            overflow: hidden;
+            border-radius: 0.5rem;
+        }
+        
+        #reader {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
         }
         
         /* Hide HTML5QrCode powered by text */
@@ -133,18 +153,19 @@
             }
         }
         
-        /* Scanning guide overlay */
+        /* Scanning guide overlay - FIXED for proper aspect ratio */
         .scan-guide {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 250px;
-            height: 250px;
+            width: 70%;
+            height: 70%;
             border: 2px dashed rgba(255, 255, 255, 0.5);
             border-radius: 20px;
             box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.3);
             pointer-events: none;
+            z-index: 5;
         }
         
         .scan-corner {
@@ -217,8 +238,8 @@
             <div id="scanner-section" class="mb-6">
                 <!-- Camera Scanner -->
                 <div id="cameraScanner" class="scanner-tab">
-                    <div id="readerContainer" class="relative w-full aspect-square overflow-hidden rounded-lg">
-                        <div id="reader" class="w-full h-full"></div>
+                    <div id="readerContainer">
+                        <div id="reader"></div>
                         <div class="scan-guide">
                             <div class="scan-corner top-left"></div>
                             <div class="scan-corner top-right"></div>
