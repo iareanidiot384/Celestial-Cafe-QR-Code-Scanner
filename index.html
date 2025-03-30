@@ -237,6 +237,20 @@
         .pb-safe {
             padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
         }
+        
+        /* Active scanning indicator */
+        .scanning-active {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 5;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200 pb-safe">
@@ -259,6 +273,9 @@
                             <div class="scan-corner top-right"></div>
                             <div class="scan-corner bottom-left"></div>
                             <div class="scan-corner bottom-right"></div>
+                        </div>
+                        <div id="scanning-indicator" class="scanning-active hidden">
+                            Scanning active...
                         </div>
                     </div>
                     
@@ -334,8 +351,7 @@
 
         <!-- Version timestamp in footer -->
         <div class="fixed bottom-20 left-0 right-0 text-center text-xs text-gray-500 dark:text-gray-400 py-2">
-            <p>v2503302109</p>
-            <p>© 2025 Mikazuki Fox / Leo Chan</p>
+            <p>v20250401-0915</p>
         </div>
 
         <!-- Mobile bottom navigation -->
@@ -622,6 +638,12 @@
             
             // Show selected tab
             document.getElementById(tabId).classList.remove('hidden');
+            
+            // Automatically restart scanning if we're showing the camera tab
+            // and the camera is already initialized
+            if (tabId === 'cameraScanner' && video.srcObject) {
+                resumeScanning();
+            }
         }
 
         // Camera handling
@@ -630,12 +652,42 @@
         let context = canvas.getContext('2d');
         let scanInterval;
         let mediaStream = null;
+        let isScanning = false;
         
         // Start Camera button
         document.getElementById('startCameraBtn').addEventListener('click', startCamera);
         
         // Manual scan button
         document.getElementById('scanBtn').addEventListener('click', scanQRCode);
+        
+        // Show scanning indicator
+        function updateScanningStatus(isActive) {
+            const indicator = document.getElementById('scanning-indicator');
+            if (isActive) {
+                indicator.classList.remove('hidden');
+                isScanning = true;
+            } else {
+                indicator.classList.add('hidden');
+                isScanning = false;
+            }
+        }
+        
+        // Resume scanning (used when returning to scanner)
+        function resumeScanning() {
+            // Only start if not already scanning
+            if (!scanInterval && video.srcObject) {
+                // Set scanning state
+                updateScanningStatus(true);
+                
+                // Start the scanning interval
+                scanInterval = setInterval(scanQRCode, 500);
+                
+                // Enable scan button
+                document.getElementById('scanBtn').disabled = false;
+                
+                console.log("Scanning resumed automatically");
+            }
+        }
         
         // Start the camera
         function startCamera() {
@@ -674,6 +726,7 @@
                         statusMsg.classList.add('hidden');
                         
                         // Start continuous scanning
+                        updateScanningStatus(true);
                         scanInterval = setInterval(scanQRCode, 500);
                     };
                     
@@ -708,6 +761,7 @@
             if (scanInterval) {
                 clearInterval(scanInterval);
                 scanInterval = null;
+                updateScanningStatus(false);
             }
             
             if (mediaStream) {
@@ -747,6 +801,7 @@
                 if (scanInterval) {
                     clearInterval(scanInterval);
                     scanInterval = null;
+                    updateScanningStatus(false);
                 }
                 
                 // Show success indicators
@@ -768,6 +823,7 @@
                     // Restart scanning after error
                     if (!scanInterval) {
                         scanInterval = setInterval(scanQRCode, 500);
+                        updateScanningStatus(true);
                     }
                 }
             }
@@ -846,19 +902,30 @@
             }
         });
 
-        // Button to return to scanner
+        // Button to return to scanner - FIXED to automatically resume scanning
         document.getElementById('backToScannerBtn').addEventListener('click', () => {
             document.getElementById('resultContainer').classList.add('hidden');
             document.getElementById('resultContainer').classList.remove('result-enter');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
+            
+            // Automatically resume scanning if the camera is still active
+            if (video.srcObject) {
+                resumeScanning();
+                showToast("Scanning resumed automatically");
+            }
         });
 
-        // Dismiss error button
+        // Dismiss error button - FIXED to automatically resume scanning
         document.getElementById('dismissErrorBtn').addEventListener('click', () => {
             document.getElementById('errorContainer').classList.add('hidden');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
+            
+            // Automatically resume scanning if the camera is still active
+            if (video.srcObject) {
+                resumeScanning();
+            }
         });
     </script>
 </body>
