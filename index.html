@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestial Cafe QR Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-primary">Celestial Cafe QR Scanner</h1>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">Scan booking QR codes to verify customer details</p>
+        </header>
+
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Scanner</h2>
+                    <button id="toggleTheme" class="bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded transition-colors">
+                        <span id="themeIcon">🌙</span>
+                    </button>
+                </div>
+                
+                <div class="text-center mb-4">
+                    <button id="startButton" class="bg-primary hover:bg-primary/90 text-white font-bold py-2 px-6 rounded transition-colors">
+                        Start Camera
+                    </button>
+                </div>
+                
+                <div id="scannerContainer" class="relative hidden">
+                    <div class="aspect-video bg-black rounded-lg overflow-hidden relative">
+                        <video id="video" class="w-full h-full object-cover"></video>
+                        <div id="scanOverlay" class="absolute inset-0 border-2 border-primary/50 pointer-events-none hidden">
+                            <div class="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-primary"></div>
+                            <div class="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-primary"></div>
+                            <div class="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-primary"></div>
+                            <div class="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-primary"></div>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600 dark:text-gray-400 text-center">
+                        Position the QR code within the camera view
+                    </div>
+                    <canvas id="canvas" class="hidden"></canvas>
+                </div>
+            </div>
+
+            <div id="resultContainer" class="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg shadow-md hidden">
+                <h2 class="text-xl font-semibold mb-4">Booking Details</h2>
+                <div id="bookingInfo" class="space-y-2"></div>
+            </div>
+
+            <div id="errorContainer" class="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg shadow-md mt-6 hidden">
+                <h2 class="text-xl font-semibold mb-2 text-red-700 dark:text-red-400">Error</h2>
+                <p id="errorMessage" class="text-red-600 dark:text-red-300"></p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 py-4 text-center text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-800">
+            <p>© 2025 Mikazuki Fox / Leo Chan</p>
+        </footer>
+    </div>
+
+    <script>
+        // Check for dark mode preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+            document.getElementById('themeIcon').textContent = '☀️';
+        }
+
+        // Listen for changes to color scheme
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').textContent = '☀️';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('themeIcon').textContent = '🌙';
+            }
+        });
+
+        // Toggle theme button
+        document.getElementById('toggleTheme').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+        });
+
+        // Caesar cipher decryption function (using shift -3, same as +3 in 26 space)
+        function caesarDecrypt(text, shift) {
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                // Handle uppercase letters
+                if (code >= 65 && code <= 90) {
+                    return String.fromCharCode(((code - 65 + (26 - shift)) % 26) + 65);
+                }
+                // Handle lowercase letters
+                else if (code >= 97 && code <= 122) {
+                    return String.fromCharCode(((code - 97 + (26 - shift)) % 26) + 97);
+                }
+                // Return unchanged for non-alphabetic characters
+                return char;
+            }).join('');
+        }
+
+        // Base64 decoding function
+        function decodeBase64(str) {
+            try {
+                return decodeURIComponent(atob(str));
+            } catch (e) {
+                console.error('Error decoding base64:', e);
+                throw new Error('Invalid Base64 data');
+            }
+        }
+
+        // Function to decrypt booking data
+        function decryptBookingData(encryptedData, shift = 3) {
+            try {
+                const decodedBase64 = decodeBase64(encryptedData);
+                const decrypted = caesarDecrypt(decodedBase64, shift);
+                return JSON.parse(decrypted);
+            } catch (error) {
+                throw new Error('Unable to decrypt QR code data. This may not be a valid booking QR code.');
+            }
+        }
+
+        // QR Code Scanner Logic
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const scannerContainer = document.getElementById('scannerContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const bookingInfo = document.getElementById('bookingInfo');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const scanOverlay = document.getElementById('scanOverlay');
+
+        let scanning = false;
+
+        startButton.addEventListener('click', startScanner);
+
+        async function startScanner() {
+            try {
+                // Hide previous results and errors
+                resultContainer.classList.add('hidden');
+                errorContainer.classList.add('hidden');
+                
+                // Show scanner
+                scannerContainer.classList.remove('hidden');
+                scanOverlay.classList.remove('hidden');
+                startButton.textContent = 'Restart Scanner';
+                
+                // Request camera access
+                const constraints = {
+                    video: { 
+                        facingMode: 'environment', // Use back camera on mobile
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                video.setAttribute('playsinline', true); // Required for iOS
+                await video.play();
+                
+                // Set canvas size
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                scanning = true;
+                requestAnimationFrame(scanQRCode);
+            } catch (error) {
+                console.error('Error starting camera:', error);
+                showError('Unable to access camera. Please ensure camera permissions are granted and try again.');
+            }
+        }
+
+        function stopScanner() {
+            scanning = false;
+            
+            // Stop the video track
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+        }
+
+        function scanQRCode() {
+            if (!scanning) return;
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Draw the video frame to the canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Get the image data
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Scan for QR code
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code) {
+                    // QR code found
+                    console.log('QR Code detected:', code.data);
+                    
+                    // Provide visual feedback
+                    beepSuccess();
+                    
+                    // Process the QR code data
+                    try {
+                        const bookingData = decryptBookingData(code.data);
+                        displayBookingInfo(bookingData);
+                        stopScanner();
+                    } catch (error) {
+                        console.error('Error processing QR code:', error);
+                        showError(error.message);
+                    }
+                }
+            }
+            
+            // Continue scanning
+            if (scanning) {
+                requestAnimationFrame(scanQRCode);
+            }
+        }
+
+        function displayBookingInfo(booking) {
+            // Hide scanner and show results
+            scannerContainer.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            
+            // Generate HTML for the dishes
+            let dishesHtml = '';
+            if (booking.dishes && Array.isArray(booking.dishes)) {
+                dishesHtml = '<div class="mt-2">';
+                booking.dishes.forEach(dish => {
+                    dishesHtml += `<div class="ml-4">• ${dish.name} (${dish.quantity})</div>`;
+                });
+                dishesHtml += '</div>';
+            } else if (booking.selectedDish) {
+                // Legacy format
+                dishesHtml = `<div class="mt-2"><div class="ml-4">• ${booking.selectedDish} (${booking.dishQuantity})</div></div>`;
+            }
+            
+            // Display booking details
+            bookingInfo.innerHTML = `
+                <div class="bg-white dark:bg-gray-700 p-4 rounded-lg">
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="col-span-1 font-medium">Name:</div>
+                        <div class="col-span-2">${booking.customerName}</div>
+                        
+                        <div class="col-span-1 font-medium">Contact:</div>
+                        <div class="col-span-2">${booking.contactMedium}: ${booking.username}</div>
+                        
+                        <div class="col-span-1 font-medium">Timeslot:</div>
+                        <div class="col-span-2">${booking.timeslot}</div>
+                        
+                        <div class="col-span-1 font-medium">Seat:</div>
+                        <div class="col-span-2">${booking.seatNumber}</div>
+                    </div>
+                    
+                    <div class="font-medium">Selected Dishes:</div>
+                    ${dishesHtml}
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            errorContainer.classList.remove('hidden');
+            errorMessage.textContent = message;
+        }
+
+        function beepSuccess() {
+            // Create audio context
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create oscillator for beep sound
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+            
+            // Connect oscillator to gain node and gain node to destination
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Set gain to 0.1 to avoid loud sound
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            
+            // Start oscillator
+            oscillator.start();
+            
+            // Stop after 150ms
+            setTimeout(() => {
+                oscillator.stop();
+            }, 150);
+        }
+    </script>
+</body>
+</html>
