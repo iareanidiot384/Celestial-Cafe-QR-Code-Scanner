@@ -321,6 +321,28 @@
         input:checked + .toggle-slider:before {
             transform: translateX(26px);
         }
+        
+        /* Camera switch button */
+        #switch-camera-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            cursor: pointer;
+        }
+        
+        #switch-camera-btn svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200 pb-safe">
@@ -345,6 +367,11 @@
                             <div class="scan-corner bottom-right"></div>
                         </div>
                         <div class="scan-line"></div>
+                        <button id="switch-camera-btn" title="Switch Camera" class="hidden">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
                         <div id="status-indicator" class="status-indicator hidden">
                             <span id="status-text">Initializing camera...</span>
                         </div>
@@ -373,6 +400,13 @@
                                 <option value="4">4</option>
                                 <option value="5">5</option>
                             </select>
+                        </div>
+                        <!-- Camera selector (shown if multiple cameras available) -->
+                        <div id="camera-selection-container" class="mt-2 hidden">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium">Camera</span>
+                                <select id="camera-select" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded px-2 py-1 text-sm"></select>
+                            </div>
                         </div>
                     </div>
                     
@@ -451,7 +485,7 @@
 
         <!-- Simple version timestamp -->
         <div class="fixed bottom-20 left-0 right-0 text-center text-xs text-gray-500 dark:text-gray-400 py-2">
-            <p>v20250330 2000</p>
+            <p>v20250330 2027</p>
         </div>
 
         <!-- Mobile bottom navigation -->
@@ -797,9 +831,163 @@
         let lastSuccessTime = 0;
         let captureTimeout;
         let samplingActive = false;
+        let availableCameras = [];
+        let currentCameraIndex = 0;
         
         // HTML5QR Code scanner (more reliable than jsQR)
         let html5QrScanner = null;
+        
+        // Switch camera button
+        const switchCameraBtn = document.getElementById('switch-camera-btn');
+        switchCameraBtn.addEventListener('click', () => {
+            // If we have multiple cameras, stop current and start with next camera
+            if (availableCameras.length > 1) {
+                switchToNextCamera();
+            }
+        });
+        
+        // Function to switch between available cameras
+        function switchToNextCamera() {
+            // Stop current camera
+            stopScanner();
+            
+            // Increment camera index and wrap around if needed
+            currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
+            
+            // Update camera selection dropdown if it exists
+            const cameraSelect = document.getElementById('camera-select');
+            if (cameraSelect && cameraSelect.options.length > currentCameraIndex) {
+                cameraSelect.selectedIndex = currentCameraIndex;
+            }
+            
+            // Start the camera with new index
+            startCamera(availableCameras[currentCameraIndex].deviceId);
+        }
+        
+        // Check if a camera is a back camera based on its label
+        function isBackCamera(cameraLabel) {
+            const backCameraIndicators = [
+                'back', 'rear', 'environment', 'environ', 
+                'exterior', 'external', 'ouside', 'traseira', 
+                'trasera', 'arrière', 'posteriore', 'hinten', 
+                '后置', '後置', '背面', 'задняя'
+            ];
+            
+            if (!cameraLabel) return false;
+            const lowerLabel = cameraLabel.toLowerCase();
+            
+            // Check for back camera indicators in the label
+            return backCameraIndicators.some(indicator => lowerLabel.includes(indicator));
+        }
+        
+        // Select the preferred camera (back camera if available)
+        function selectPreferredCamera(cameras) {
+            // Default to first camera
+            let preferredCamera = cameras[0];
+            let backCameraFound = false;
+            
+            // Look for a back camera
+            for (const camera of cameras) {
+                if (isBackCamera(camera.label)) {
+                    preferredCamera = camera;
+                    backCameraFound = true;
+                    addDebugInfo("Back camera found: " + camera.label);
+                    break;
+                }
+            }
+            
+            // If no obvious back camera, use the second camera (often the back on mobile)
+            if (!backCameraFound && cameras.length > 1) {
+                preferredCamera = cameras[1];
+                addDebugInfo("Using second camera: " + preferredCamera.label);
+            }
+            
+            return preferredCamera;
+        }
+        
+        // Populate camera select dropdown
+        function populateCameraSelection(cameras) {
+            const selectionContainer = document.getElementById('camera-selection-container');
+            const cameraSelect = document.getElementById('camera-select');
+            
+            // Only show selection if we have multiple cameras
+            if (cameras.length <= 1) {
+                selectionContainer.classList.add('hidden');
+                return;
+            }
+            
+            // Clear existing options
+            cameraSelect.innerHTML = '';
+            
+            // Add cameras to dropdown
+            cameras.forEach((camera, index) => {
+                const option = document.createElement('option');
+                option.value = camera.deviceId;
+                
+                // Create a descriptive label
+                let label = camera.label || `Camera ${index + 1}`;
+                
+                // Try to identify back vs front
+                if (isBackCamera(camera.label)) {
+                    label += ' (Back)';
+                } else if (camera.label && camera.label.toLowerCase().includes('front')) {
+                    label += ' (Front)';
+                }
+                
+                option.text = label;
+                cameraSelect.appendChild(option);
+            });
+            
+            // Listen for camera selection changes
+            cameraSelect.addEventListener('change', function() {
+                const selectedIndex = this.selectedIndex;
+                currentCameraIndex = selectedIndex;
+                
+                // Restart camera with selected camera
+                stopScanner();
+                startCamera(cameras[selectedIndex].deviceId);
+            });
+            
+            // Show the selection container
+            selectionContainer.classList.remove('hidden');
+            
+            // Show camera switch button
+            switchCameraBtn.classList.remove('hidden');
+        }
+        
+        // Get all available cameras
+        async function getAvailableCameras() {
+            try {
+                // Request camera permission first
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // Now enumerate devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(device => device.kind === 'videoinput');
+                
+                if (cameras.length > 0) {
+                    // Debug info about cameras
+                    addDebugInfo(`Found ${cameras.length} cameras`);
+                    cameras.forEach((camera, i) => {
+                        addDebugInfo(`Camera ${i+1}: ${camera.label || 'unnamed'}`);
+                    });
+                    
+                    // Save list of cameras
+                    availableCameras = cameras;
+                    
+                    // Setup camera selection UI
+                    populateCameraSelection(cameras);
+                    
+                    return cameras;
+                } else {
+                    addDebugInfo("No cameras found");
+                    return [];
+                }
+            } catch (error) {
+                addDebugInfo("Error getting cameras: " + error.message);
+                return [];
+            }
+        }
         
         // Advanced QR scanning with HTML5-QRCode
         async function scanQRCodeAdvanced() {
@@ -816,13 +1004,27 @@
                         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
                     });
                     
-                    const cameraId = (await Html5Qrcode.getCameras())[0]?.id;
+                    // Get the currently selected camera or the preferred one
+                    let cameraId;
+                    if (availableCameras.length > 0) {
+                        cameraId = availableCameras[currentCameraIndex].deviceId;
+                    } else {
+                        // Fallback to first camera
+                        const cameras = await Html5Qrcode.getCameras();
+                        if (cameras.length > 0) {
+                            cameraId = cameras[0].id;
+                        } else {
+                            throw new Error("No cameras available");
+                        }
+                    }
+                    
                     if (cameraId) {
                         const config = {
                             fps: 10,
                             qrbox: { width: 250, height: 250 },
                             aspectRatio: 1,
-                            disableFlip: false,
+                            // Explicitly set to not flip the image
+                            disableFlip: true
                         };
                         
                         html5QrScanner.start(
@@ -845,41 +1047,6 @@
             } catch (e) {
                 addDebugInfo("Error during advanced scan: " + e.message);
                 updateStatus("Scan error. Retrying...", "error");
-                
-                // Fallback to canvas capture method
-                try {
-                    // Draw current video frame to canvas
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    
-                    // Get image data from the canvas
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    
-                    // Save debug capture if enabled
-                    if (document.getElementById('debug-mode').checked) {
-                        const debugCanvas = document.getElementById('debug-capture');
-                        debugCanvas.width = canvas.width;
-                        debugCanvas.height = canvas.height;
-                        debugCanvas.getContext('2d').putImageData(imageData, 0, 0);
-                        debugCanvas.style.display = 'block';
-                    }
-                    
-                    // Use the raw imageData for direct processing
-                    const qrCodeReader = new Html5QrcodeScanner(
-                        "reader", { fps: 10, qrbox: 250 }
-                    );
-                    
-                    const result = qrCodeReader._qrCode.decode(
-                        imageData.data,
-                        imageData.width,
-                        imageData.height
-                    );
-                    
-                    if (result) {
-                        processScanResult(result);
-                    }
-                } catch (canvasError) {
-                    // Silently fail on canvas method - we'll try again on next interval
-                }
             } finally {
                 samplingActive = false;
             }
@@ -1005,7 +1172,20 @@
         }
         
         // Start Camera button
-        document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+        document.getElementById('startCameraBtn').addEventListener('click', async () => {
+            // Discover available cameras first
+            await getAvailableCameras();
+            
+            // Start with preferred camera
+            if (availableCameras.length > 0) {
+                const preferredCamera = selectPreferredCamera(availableCameras);
+                currentCameraIndex = availableCameras.indexOf(preferredCamera);
+                startCamera(preferredCamera.deviceId);
+            } else {
+                // Fallback to default camera
+                startCamera();
+            }
+        });
         
         // Scan File button
         document.getElementById('scanFileBtn').addEventListener('click', () => {
@@ -1020,8 +1200,8 @@
             }
         });
         
-        // Start the enhanced camera
-        function startCamera() {
+        // Start the camera with specific deviceId (if provided)
+        function startCamera(deviceId = null) {
             const startBtn = document.getElementById('startCameraBtn');
             
             // Update button state
@@ -1038,28 +1218,41 @@
             // Stop any existing streams
             stopScanner();
             
-            // Set up camera with improved constraints for complex QR codes
+            // Set up camera constraints
+            let constraints = {
+                video: {
+                    // Always try to use the back camera first
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 },
+                    // Enable advanced capabilities if available
+                    advanced: [
+                        { focusMode: "continuous" }
+                    ]
+                }
+            };
+            
+            // If a specific device ID is provided, use it directly
+            if (deviceId) {
+                constraints.video.deviceId = { exact: deviceId };
+                addDebugInfo("Using specific camera: " + deviceId);
+                // Remove facingMode constraint to avoid conflicts
+                delete constraints.video.facingMode;
+            } else {
+                addDebugInfo("Using environment-facing camera (rear camera)");
+            }
+            
+            // Access the camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                // Request camera access with enhanced constraints
-                navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment', 
-                        width: { ideal: 1280 }, // Higher resolution
-                        height: { ideal: 720 },
-                        frameRate: { ideal: 30 }, // Higher frame rate
-                        // Enable advanced capabilities if available
-                        advanced: [
-                            { zoom: 2 }, // Slight zoom can help on some devices
-                            { exposureMode: "continuous" },
-                            { focusMode: "continuous" }
-                        ]
-                    }
-                })
+                navigator.mediaDevices.getUserMedia(constraints)
                 .then(function(stream) {
                     mediaStream = stream;
                     video.srcObject = stream;
                     
-                    addDebugInfo("Camera initialized");
+                    // Get the actual camera being used
+                    const videoTrack = stream.getVideoTracks()[0];
+                    addDebugInfo("Camera initialized: " + videoTrack.label);
                     
                     // Set canvas dimensions based on video feed
                     video.onloadedmetadata = function() {
@@ -1091,6 +1284,14 @@
                     
                     startBtn.disabled = false;
                     startBtn.textContent = 'Start Camera';
+                    
+                    // Try fallback if we were using a deviceId
+                    if (deviceId) {
+                        addDebugInfo("Trying fallback to any available camera");
+                        showToast("Could not access selected camera. Trying default camera.", "warning");
+                        startCamera(); // Retry without specific deviceId
+                        return;
+                    }
                     
                     // Specific error handling
                     if (error.name === 'NotAllowedError') {
