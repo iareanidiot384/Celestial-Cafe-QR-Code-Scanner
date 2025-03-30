@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Enhanced QR Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Multiple QR libraries for better compatibility -->
+    <!-- Primary QR library -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -56,18 +55,6 @@
         
         #scanner-canvas {
             display: none;
-        }
-        
-        #html5-qrcode-anchor-scan-type-change {
-            display: none !important;
-        }
-        
-        #html5-qrcode-button-camera-permission {
-            color: white !important;
-            background-color: #5D5CDE !important;
-            border: none !important;
-            border-radius: 0.5rem !important;
-            padding: 0.5rem 1rem !important;
         }
         
         /* Enhanced scanning guide overlay */
@@ -806,48 +793,63 @@
         let captureTimeout;
         let samplingActive = false;
         
-        // Multiple scanning attempts with different approaches
-        async function attemptMultipleScanMethods(imageData) {
-            const methods = [
-                { name: "jsQR", fn: () => jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" }) },
-                { name: "jsQR-inverted", fn: () => jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "onlyInvert" }) },
-                { name: "jsQR-both", fn: () => jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" }) }
-            ];
-            
-            // Try each method
-            for (const method of methods) {
-                try {
-                    addDebugInfo(`Trying scan method: ${method.name}`);
-                    const result = method.fn();
-                    if (result) {
-                        addDebugInfo(`Successful scan with ${method.name}`);
-                        return result.data;
-                    }
-                } catch (e) {
-                    addDebugInfo(`Error with ${method.name}: ${e.message}`);
-                }
-            }
-            
-            return null;
-        }
+        // HTML5QR Code scanner (more reliable than jsQR)
+        let html5QrScanner = null;
         
-        // Advanced QR scanning with frame sampling
+        // Advanced QR scanning with HTML5-QRCode
         async function scanQRCodeAdvanced() {
             if (samplingActive || !video.srcObject) return;
             samplingActive = true;
             
             try {
-                // Take multiple captures with slight time delay for better chances of a clean frame
-                updateStatus("Analyzing video frame...");
+                // Use HTML5-QRCode built-in methods with specific config
+                if (!html5QrScanner) {
+                    const scannerElement = document.getElementById('scanner-container');
+                    
+                    // Configure our own HTML5QrScanner instance
+                    html5QrScanner = new Html5Qrcode("scanner-container", { 
+                        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+                    });
+                    
+                    const cameraId = (await Html5Qrcode.getCameras())[0]?.id;
+                    if (cameraId) {
+                        const config = {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 },
+                            aspectRatio: 1,
+                            disableFlip: false,
+                        };
+                        
+                        html5QrScanner.start(
+                            cameraId, 
+                            config,
+                            (decodedText) => {
+                                processScanResult(decodedText);
+                                html5QrScanner.pause();
+                            },
+                            (errorMessage) => {
+                                // Ignore most scan errors as they're expected during scanning
+                                if (errorMessage.includes("No QR code found")) {
+                                    return;
+                                }
+                                addDebugInfo("Scan error: " + errorMessage);
+                            }
+                        );
+                    }
+                }
+            } catch (e) {
+                addDebugInfo("Error during advanced scan: " + e.message);
+                updateStatus("Scan error. Retrying...", "error");
                 
-                for (let attempt = 0; attempt < 3; attempt++) {
-                    // Draw current video frame
+                // Fallback to canvas capture method
+                try {
+                    // Draw current video frame to canvas
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    // Get image data
+                    // Get image data from the canvas
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     
-                    // Save debug capture if in debug mode
+                    // Save debug capture if enabled
                     if (document.getElementById('debug-mode').checked) {
                         const debugCanvas = document.getElementById('debug-capture');
                         debugCanvas.width = canvas.width;
@@ -856,33 +858,23 @@
                         debugCanvas.style.display = 'block';
                     }
                     
-                    // Try to scan with various methods
-                    const scanResult = await attemptMultipleScanMethods(imageData);
+                    // Use the raw imageData for direct processing
+                    const qrCodeReader = new Html5QrcodeScanner(
+                        "reader", { fps: 10, qrbox: 250 }
+                    );
                     
-                    if (scanResult) {
-                        lastSuccessTime = Date.now();
-                        consecutiveFailures = 0;
-                        processScanResult(scanResult);
-                        return;
+                    const result = qrCodeReader._qrCode.decode(
+                        imageData.data,
+                        imageData.width,
+                        imageData.height
+                    );
+                    
+                    if (result) {
+                        processScanResult(result);
                     }
-                    
-                    // Wait a bit before trying the next sample
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (canvasError) {
+                    // Silently fail on canvas method - we'll try again on next interval
                 }
-                
-                // No success in this batch
-                consecutiveFailures++;
-                
-                if (consecutiveFailures > 10) {
-                    // After many failures, provide guidance
-                    updateStatus("No QR code detected. Try adjusting position or lighting.", "warning");
-                    consecutiveFailures = 0;
-                } else {
-                    updateStatus("Scanning...");
-                }
-            } catch (e) {
-                addDebugInfo("Error during advanced scan: " + e.message);
-                updateStatus("Scan error. Retrying...", "error");
             } finally {
                 samplingActive = false;
             }
@@ -892,8 +884,10 @@
         function processScanResult(rawData) {
             try {
                 // Pause scanning
-                clearInterval(scanInterval);
-                scanInterval = null;
+                if (scanInterval) {
+                    clearInterval(scanInterval);
+                    scanInterval = null;
+                }
                 
                 // Try decrypting with the selected encryption key
                 const shiftKey = parseInt(document.getElementById('encryption-key').value, 10);
@@ -944,7 +938,8 @@
                 
                 // Restart scanning after a brief pause
                 setTimeout(() => {
-                    if (!scanInterval && video.srcObject) {
+                    if (!scanInterval && video.srcObject && html5QrScanner) {
+                        html5QrScanner.resume();
                         scanInterval = setInterval(scanQRCodeAdvanced, 800);
                     }
                 }, 1500);
@@ -959,63 +954,23 @@
                 // Show status
                 updateStatus("Processing image...");
                 
-                // Create image from file
-                const img = await createImageFromFile(file);
+                // Create a temporary instance just for file scanning
+                const tempScanner = new Html5Qrcode("scanner-container");
                 
-                // Resize canvas to match image
-                canvas.width = img.width;
-                canvas.height = img.height;
-                
-                // Draw image to canvas
-                ctx.drawImage(img, 0, 0, img.width, img.height);
-                
-                // Get image data for scanning
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // Debug capture
-                if (document.getElementById('debug-mode').checked) {
-                    const debugCanvas = document.getElementById('debug-capture');
-                    debugCanvas.width = canvas.width;
-                    debugCanvas.height = canvas.height;
-                    debugCanvas.getContext('2d').putImageData(imageData, 0, 0);
-                    debugCanvas.style.display = 'block';
-                }
-                
-                // Try scanning with various methods
-                updateStatus("Scanning image for QR codes...");
-                const scanResult = await attemptMultipleScanMethods(imageData);
-                
-                if (!scanResult) {
-                    throw new Error("No QR code found in the image. Try a clearer image with good lighting.");
-                }
-                
-                // Process the scan result
-                processScanResult(scanResult);
+                tempScanner.scanFile(file, true)
+                    .then(decodedText => {
+                        processScanResult(decodedText);
+                    })
+                    .catch(error => {
+                        addDebugInfo("Image scan error: " + error);
+                        showError("No QR code found in the image. Try a clearer image with better lighting.");
+                        updateStatus("Image scan failed", "error");
+                    });
             } catch (error) {
-                addDebugInfo("Image scan error: " + error.message);
-                showError(error.message);
-                updateStatus("Image scan failed", "error");
+                addDebugInfo("File scan error: " + error.message);
+                showError("Could not process the image. " + error.message);
+                updateStatus("File scan failed", "error");
             }
-        }
-        
-        // Create image from file
-        function createImageFromFile(file) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                const url = URL.createObjectURL(file);
-                
-                img.onload = () => {
-                    URL.revokeObjectURL(url);
-                    resolve(img);
-                };
-                
-                img.onerror = () => {
-                    URL.revokeObjectURL(url);
-                    reject(new Error("Failed to load image"));
-                };
-                
-                img.src = url;
-            });
         }
         
         // Update status indicator
@@ -1084,8 +1039,8 @@
                 navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment', 
-                        width: { ideal: 1920 }, // Higher resolution
-                        height: { ideal: 1080 },
+                        width: { ideal: 1280 }, // Higher resolution
+                        height: { ideal: 720 },
                         frameRate: { ideal: 30 }, // Higher frame rate
                         // Enable advanced capabilities if available
                         advanced: [
@@ -1172,6 +1127,17 @@
                 captureTimeout = null;
             }
             
+            if (html5QrScanner) {
+                try {
+                    html5QrScanner.stop().catch(error => {
+                        console.error("Error stopping scanner:", error);
+                    });
+                    html5QrScanner = null;
+                } catch (e) {
+                    // Ignore stop errors
+                }
+            }
+            
             // Reset state
             samplingActive = false;
             consecutiveFailures = 0;
@@ -1221,8 +1187,9 @@
             showTab('cameraScanner');
             
             // Restart scanning if camera was active
-            if (!scanInterval && video.srcObject) {
-                scanInterval = setInterval(scanQRCodeAdvanced, 800);
+            if (video.srcObject) {
+                // Restart scanner
+                startCamera();
             }
         });
 
@@ -1233,8 +1200,9 @@
             showTab('cameraScanner');
             
             // Restart scanning if camera was active
-            if (!scanInterval && video.srcObject) {
-                scanInterval = setInterval(scanQRCodeAdvanced, 800);
+            if (video.srcObject) {
+                // Restart scanner
+                startCamera(); 
             }
         });
         
@@ -1258,9 +1226,9 @@
                 document.getElementById('scanner-section').classList.remove('hidden');
                 showTab('cameraScanner');
                 
-                // Restart scanning if camera was active
-                if (!scanInterval && video.srcObject) {
-                    scanInterval = setInterval(scanQRCodeAdvanced, 800);
+                // Restart scanning
+                if (video.srcObject) {
+                    startCamera();
                 }
             }
         });
