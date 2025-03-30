@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Celestial Cafe QR Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Using jsQR for best compatibility -->
+    <!-- Using a simpler QR library that works better on iOS -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         tailwind.config = {
@@ -274,16 +274,35 @@
                         <button id="startCameraBtn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                             Start Camera
                         </button>
+                        <button id="scanBtn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors" disabled>
+                            Scan Now
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- File Upload -->
+                <div id="fileScanner" class="scanner-tab hidden">
+                    <div class="flex items-center justify-center w-full">
+                        <label for="qrFileInput" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-10 h-10 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                </svg>
+                                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Tap to upload</span> a photo</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG (MAX. 10MB)</p>
+                            </div>
+                            <input id="qrFileInput" type="file" class="hidden" accept="image/*" capture="environment" />
+                        </label>
                     </div>
                 </div>
                 
                 <!-- Manual Input -->
                 <div id="manualInput" class="scanner-tab hidden">
                     <div class="space-y-4">
-                        <p class="text-sm">Enter booking verification code:</p>
-                        <input type="text" id="bookingCodeInput" class="w-full px-4 py-3 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base font-mono tracking-wider text-center text-lg uppercase" placeholder="Enter code (e.g. ABC123)" maxlength="6">
-                        <button id="verifyCodeBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
-                            Verify Code
+                        <p class="text-sm">Paste the QR code content below:</p>
+                        <textarea id="qrDataInput" rows="5" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base" placeholder="Paste encrypted QR code data here..."></textarea>
+                        <button id="decodeManualBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
+                            Decode Data
                         </button>
                     </div>
                 </div>
@@ -292,32 +311,12 @@
             <!-- Results Container -->
             <div id="resultContainer" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hidden mb-20">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">Booking Verified</h2>
+                    <h2 class="text-xl font-semibold">Booking Details</h2>
                     <div class="bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-sm font-medium">
-                        Valid ✓
+                        Verified ✓
                     </div>
                 </div>
-                <div id="verificationResult" class="space-y-2">
-                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <div class="text-center mb-3">
-                            <p class="text-lg font-bold font-mono">[BOOKING CODE]</p>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
-                                <span class="font-medium">Customer:</span>
-                                <span>...</span>
-                            </div>
-                            <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
-                                <span class="font-medium">Timeslot:</span>
-                                <span>...</span>
-                            </div>
-                            <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
-                                <span class="font-medium">Seat:</span>
-                                <span>...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="bookingInfo" class="space-y-2"></div>
                 <button id="backToScannerBtn" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                     Scan Another Code
                 </button>
@@ -335,13 +334,19 @@
 
         <!-- Mobile bottom navigation -->
         <div class="mobile-tab-bar shadow-lg border-t border-gray-200 dark:border-gray-700">
-            <div class="grid grid-cols-2 h-16">
+            <div class="grid grid-cols-3 h-16">
                 <button id="mobileTabCamera" class="flex flex-col items-center justify-center text-primary border-t-2 border-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <span class="text-xs mt-1">Camera</span>
+                </button>
+                <button id="mobileTabFile" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-xs mt-1">Image</span>
                 </button>
                 <button id="mobileTabManual" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -360,45 +365,6 @@
     </div>
 
     <script>
-        // Mock database of bookings (in a real app, this would come from your server or local storage)
-        // This simulates the bookings you'd retrieve from your storage
-        const mockBookingDatabase = [
-            {
-                bookingCode: "ABC123",
-                customerName: "John Smith",
-                contactMedium: "Email",
-                username: "john@example.com",
-                timeslot: "1400 - 1530",
-                dishes: [
-                    { name: "Basque cake", quantity: "2" },
-                    { name: "Celestial Cupcake", quantity: "1" }
-                ],
-                seatNumber: "A1"
-            },
-            {
-                bookingCode: "XYZ789",
-                customerName: "Jane Doe",
-                contactMedium: "Telegram",
-                username: "@janedoe",
-                timeslot: "1600 - 1730",
-                dishes: [
-                    { name: "Celestial Cupcake", quantity: "3" }
-                ],
-                seatNumber: "A2"
-            }
-        ];
-        
-        // In a real application, replace this with actual data from your server or storage
-        function findBookingByCode(code) {
-            // Strip any prefix like "CAFE-" that might be in the QR code
-            const cleanCode = code.replace(/^CAFE-/i, '');
-            
-            // Find the matching booking
-            return mockBookingDatabase.find(booking => 
-                booking.bookingCode.toUpperCase() === cleanCode.toUpperCase()
-            );
-        }
-
         // Check for dark mode preference
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
@@ -422,6 +388,48 @@
             const isDark = document.documentElement.classList.contains('dark');
             document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
         });
+
+        // Caesar cipher decryption function (using shift -3)
+        function caesarDecrypt(text, shift = 3) {
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                // Handle uppercase letters
+                if (code >= 65 && code <= 90) {
+                    return String.fromCharCode(((code - 65 + (26 - shift)) % 26) + 65);
+                }
+                // Handle lowercase letters
+                else if (code >= 97 && code <= 122) {
+                    return String.fromCharCode(((code - 97 + (26 - shift)) % 26) + 97);
+                }
+                // Return unchanged for non-alphabetic characters
+                return char;
+            }).join('');
+        }
+
+        // Base64 decoding function
+        function decodeBase64(str) {
+            try {
+                return decodeURIComponent(atob(str));
+            } catch (e) {
+                console.error('Error decoding base64:', e);
+                throw new Error('Invalid Base64 data');
+            }
+        }
+
+        // Function to decrypt booking data
+        function decryptBookingData(encryptedData, shift = 3) {
+            try {
+                console.log('Encrypted data:', encryptedData);
+                const decodedBase64 = decodeBase64(encryptedData);
+                console.log('Base64 decoded:', decodedBase64);
+                const decrypted = caesarDecrypt(decodedBase64, shift);
+                console.log('Caesar decrypted:', decrypted);
+                return JSON.parse(decrypted);
+            } catch (error) {
+                console.error('Error decrypting data:', error);
+                throw new Error('Unable to decrypt QR code data. This may not be a valid booking QR code.');
+            }
+        }
 
         // Show toast notification
         function showToast(message, type = 'success') {
@@ -473,8 +481,8 @@
             }, 1000);
         }
 
-        // Function to display booking verification result
-        function displayVerificationResult(booking) {
+        // Function to display booking information
+        function displayBookingInfo(booking) {
             // Show results container with animation
             const resultContainer = document.getElementById('resultContainer');
             resultContainer.classList.remove('hidden');
@@ -483,47 +491,46 @@
             // Hide scanner section
             document.getElementById('scanner-section').classList.add('hidden');
             
-            // Generate dishes HTML
+            // Generate HTML for the dishes
             let dishesHtml = '';
-            if (booking.dishes && booking.dishes.length > 0) {
-                dishesHtml = `<div class="mt-2">`;
+            if (booking.dishes && Array.isArray(booking.dishes)) {
+                dishesHtml = '<div class="mt-2">';
                 booking.dishes.forEach(dish => {
-                    dishesHtml += `<div class="ml-4 flex justify-between">
-                        <span>• ${dish.name}</span>
-                        <span class="font-medium">${dish.quantity}</span>
-                    </div>`;
+                    dishesHtml += `<div class="ml-4 flex justify-between"><span>• ${dish.name}</span> <span class="font-medium">${dish.quantity}</span></div>`;
                 });
-                dishesHtml += `</div>`;
+                dishesHtml += '</div>';
+            } else if (booking.selectedDish) {
+                // Legacy format
+                dishesHtml = `<div class="mt-2"><div class="ml-4 flex justify-between"><span>• ${booking.selectedDish}</span> <span class="font-medium">${booking.dishQuantity}</span></div></div>`;
             }
             
-            // Display verification result
-            const verificationResult = document.getElementById('verificationResult');
-            verificationResult.innerHTML = `
+            // Display booking details
+            const bookingInfo = document.getElementById('bookingInfo');
+            bookingInfo.innerHTML = `
                 <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                    <div class="text-center mb-3">
-                        <p class="text-lg font-bold font-mono">${booking.bookingCode}</p>
-                    </div>
                     <div class="space-y-3">
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Customer:</span>
                             <span>${booking.customerName}</span>
                         </div>
+                        
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Contact:</span>
                             <span>${booking.contactMedium}: ${booking.username}</span>
                         </div>
+                        
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Timeslot:</span>
                             <span>${booking.timeslot}</span>
                         </div>
+                        
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Seat:</span>
                             <span>${booking.seatNumber}</span>
                         </div>
+                        
                         <div>
-                            <div class="font-medium border-b border-gray-200 dark:border-gray-600 pb-2">
-                                Selected Dishes:
-                            </div>
+                            <div class="font-medium border-b border-gray-200 dark:border-gray-600 pb-2">Selected Dishes:</div>
                             ${dishesHtml}
                         </div>
                     </div>
@@ -575,37 +582,16 @@
             }
         }
 
-        // Process the scanned booking code
-        function processBookingCode(scannedCode) {
-            // Strip any prefix
-            let bookingCode = scannedCode;
-            
-            // If the format is CAFE-CODE, extract just the code part
-            if (scannedCode.startsWith('CAFE-')) {
-                bookingCode = scannedCode.substring(5);
-            }
-            
-            // Find the booking in our database
-            const booking = findBookingByCode(bookingCode);
-            
-            if (booking) {
-                // Show success indicators
-                showToast("Booking verified successfully!");
-                beepSuccess();
-                
-                // Display the booking details
-                setTimeout(() => {
-                    displayVerificationResult(booking);
-                }, 500);
-            } else {
-                showError(`Booking code "${bookingCode}" not found. Please verify and try again.`);
-            }
-        }
-
         // Tab switching logic - Mobile
         document.getElementById('mobileTabCamera').addEventListener('click', () => {
             showTab('cameraScanner');
             updateActiveMobileTab('mobileTabCamera');
+        });
+        
+        document.getElementById('mobileTabFile').addEventListener('click', () => {
+            showTab('fileScanner');
+            updateActiveMobileTab('mobileTabFile');
+            stopCamera();
         });
         
         document.getElementById('mobileTabManual').addEventListener('click', () => {
@@ -653,9 +639,13 @@
         // Start Camera button
         document.getElementById('startCameraBtn').addEventListener('click', startCamera);
         
+        // Manual scan button
+        document.getElementById('scanBtn').addEventListener('click', scanQRCode);
+        
         // Start the camera
         function startCamera() {
             const startBtn = document.getElementById('startCameraBtn');
+            const scanBtn = document.getElementById('scanBtn');
             const statusMsg = document.getElementById('camera-status');
             
             // Update button state
@@ -685,6 +675,7 @@
                         // Update UI
                         startBtn.innerHTML = 'Restart Camera';
                         startBtn.disabled = false;
+                        scanBtn.disabled = false;
                         statusMsg.classList.add('hidden');
                         
                         // Start continuous scanning
@@ -700,20 +691,20 @@
                     
                     statusMsg.innerHTML = `
                         <p>❗ Camera access denied or error.</p>
-                        <p class="mt-1">Try using the Manual input option instead.</p>
+                        <p class="mt-1">Try using the Image or Manual input options instead.</p>
                     `;
                     
-                    showToast("Camera access error. Try the Manual tab instead.", "error");
+                    showToast("Camera access error. Try the Image or Manual tab instead.", "error");
                 });
             } else {
                 statusMsg.innerHTML = `
                     <p>❗ Camera not supported in this browser.</p>
-                    <p class="mt-1">Try using the Manual input option instead.</p>
+                    <p class="mt-1">Try using the Image or Manual input options instead.</p>
                 `;
                 startBtn.innerHTML = 'Camera Unavailable';
                 startBtn.disabled = true;
                 
-                showToast("Camera not supported. Try the Manual tab instead.", "error");
+                showToast("Camera not supported. Try the Image or Manual tab instead.", "error");
             }
         }
         
@@ -732,8 +723,11 @@
             
             // Reset UI
             const startBtn = document.getElementById('startCameraBtn');
+            const scanBtn = document.getElementById('scanBtn');
+            
             startBtn.innerHTML = 'Start Camera';
             startBtn.disabled = false;
+            scanBtn.disabled = true;
         }
         
         // Scan for QR codes
@@ -762,24 +756,99 @@
                 
                 // Show success indicators
                 showScanSuccess();
+                showToast("QR Code successfully scanned!");
+                beepSuccess();
                 
-                // Process the QR code data
-                processBookingCode(code.data);
+                try {
+                    // Process the QR code data
+                    const bookingData = decryptBookingData(code.data);
+                    
+                    // Display the booking details
+                    setTimeout(() => {
+                        displayBookingInfo(bookingData);
+                    }, 500);
+                } catch (error) {
+                    showError(error.message || "Failed to process QR code data");
+                    
+                    // Restart scanning after error
+                    if (!scanInterval) {
+                        scanInterval = setInterval(scanQRCode, 500);
+                    }
+                }
             }
         }
 
-        // Manual verification button
-        document.getElementById('verifyCodeBtn').addEventListener('click', function() {
-            const codeInput = document.getElementById('bookingCodeInput');
-            const bookingCode = codeInput.value.trim().toUpperCase();
+        // File input handling
+        document.getElementById('qrFileInput').addEventListener('change', event => {
+            const file = event.target.files[0];
+            if (!file) return;
             
-            if (!bookingCode) {
-                showToast("Please enter a booking code", "error");
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Create canvas to process the image
+                    const tempCanvas = document.createElement('canvas');
+                    const tempContext = tempCanvas.getContext('2d');
+                    
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    tempContext.drawImage(img, 0, 0, img.width, img.height);
+                    
+                    // Get image data
+                    const imageData = tempContext.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    
+                    // Scan for QR code
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert",
+                    });
+                    
+                    if (code) {
+                        // Show success indicators
+                        showToast("QR Code successfully scanned from image!");
+                        beepSuccess();
+                        
+                        try {
+                            // Process the QR code data
+                            const bookingData = decryptBookingData(code.data);
+                            
+                            // Display the booking details
+                            setTimeout(() => {
+                                displayBookingInfo(bookingData);
+                            }, 500);
+                        } catch (error) {
+                            showError(error.message || "Failed to process QR code data");
+                        }
+                    } else {
+                        showError("No QR code found in the image. Please try with a clearer image.");
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Manual input handling
+        document.getElementById('decodeManualBtn').addEventListener('click', () => {
+            const qrData = document.getElementById('qrDataInput').value.trim();
+            if (!qrData) {
+                showError("Please enter QR code data.");
                 return;
             }
             
-            // Process the manually entered code
-            processBookingCode(bookingCode);
+            try {
+                const bookingData = decryptBookingData(qrData);
+                
+                // Show success notification
+                showToast("QR Code data successfully decoded!");
+                beepSuccess();
+                
+                setTimeout(() => {
+                    displayBookingInfo(bookingData);
+                }, 500);
+            } catch (error) {
+                showError(error.message);
+            }
         });
 
         // Button to return to scanner
@@ -788,11 +857,6 @@
             document.getElementById('resultContainer').classList.remove('result-enter');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
-            
-            // Restart scanning
-            if (!scanInterval && video.srcObject) {
-                scanInterval = setInterval(scanQRCode, 500);
-            }
         });
 
         // Dismiss error button
@@ -800,11 +864,6 @@
             document.getElementById('errorContainer').classList.add('hidden');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
-            
-            // Restart scanning
-            if (!scanInterval && video.srcObject) {
-                scanInterval = setInterval(scanQRCode, 500);
-            }
         });
     </script>
 </body>
