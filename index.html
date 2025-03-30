@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Celestial Cafe QR Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Using a simpler QR library that works better on iOS -->
-    <script src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner-worker.min.js"></script>
-    <script src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js"></script>
+    <!-- Using HTML5-QRCode library for better scanning -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -34,71 +33,19 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* Camera styling */
-        #videoContainer {
-            position: relative;
-            overflow: hidden;
-            background-color: #000;
-            aspect-ratio: 1;
-            border-radius: 12px;
+        /* Optimize scanner for mobile */
+        #reader {
+            border: none !important;
+            width: 100% !important;
         }
         
-        #scanner-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        #reader video {
+            object-fit: cover !important;
         }
         
-        /* Scanning guide overlay */
-        .scan-guide {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70%;
-            height: 70%;
-            border: 2px dashed rgba(255, 255, 255, 0.5);
-            border-radius: 20px;
-            pointer-events: none;
-            z-index: 5;
-        }
-        
-        .scan-corner {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-        }
-        
-        .top-left {
-            top: -2px;
-            left: -2px;
-            border-top: 4px solid #5D5CDE;
-            border-left: 4px solid #5D5CDE;
-            border-top-left-radius: 15px;
-        }
-        
-        .top-right {
-            top: -2px;
-            right: -2px;
-            border-top: 4px solid #5D5CDE;
-            border-right: 4px solid #5D5CDE;
-            border-top-right-radius: 15px;
-        }
-        
-        .bottom-left {
-            bottom: -2px;
-            left: -2px;
-            border-bottom: 4px solid #5D5CDE;
-            border-left: 4px solid #5D5CDE;
-            border-bottom-left-radius: 15px;
-        }
-        
-        .bottom-right {
-            bottom: -2px;
-            right: -2px;
-            border-bottom: 4px solid #5D5CDE;
-            border-right: 4px solid #5D5CDE;
-            border-bottom-right-radius: 15px;
+        /* Hide HTML5QrCode powered by text */
+        .html5-qrcode-element {
+            font-size: 0 !important;
         }
         
         /* Toast notification styling */
@@ -143,7 +90,33 @@
                 visibility: hidden;
             }
         }
-        
+
+        /* Scanner success indicator */
+        .scan-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 5px solid #10B981;
+            border-radius: 8px;
+            animation: pulseSuccess 1s;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes pulseSuccess {
+            0% {
+                opacity: 0;
+            }
+            50% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
         /* Result container entrance animation */
         .result-enter {
             animation: slideUp 0.4s ease-out;
@@ -160,116 +133,134 @@
             }
         }
         
-        /* Safari and iOS specific fixes */
-        input[type="file"] {
-            font-size: 16px; /* Prevents zoom on input focus */
+        /* Scanning guide overlay */
+        .scan-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 250px;
+            height: 250px;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 20px;
+            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.3);
+            pointer-events: none;
         }
         
-        textarea {
-            font-size: 16px; /* Prevents zoom on input focus */
+        .scan-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+        }
+        
+        .top-left {
+            top: -2px;
+            left: -2px;
+            border-top: 4px solid #5D5CDE;
+            border-left: 4px solid #5D5CDE;
+            border-top-left-radius: 15px;
+        }
+        
+        .top-right {
+            top: -2px;
+            right: -2px;
+            border-top: 4px solid #5D5CDE;
+            border-right: 4px solid #5D5CDE;
+            border-top-right-radius: 15px;
+        }
+        
+        .bottom-left {
+            bottom: -2px;
+            left: -2px;
+            border-bottom: 4px solid #5D5CDE;
+            border-left: 4px solid #5D5CDE;
+            border-bottom-left-radius: 15px;
+        }
+        
+        .bottom-right {
+            bottom: -2px;
+            right: -2px;
+            border-bottom: 4px solid #5D5CDE;
+            border-right: 4px solid #5D5CDE;
+            border-bottom-right-radius: 15px;
+        }
+        
+        /* Mobile bottom navigation */
+        .mobile-tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            z-index: 50;
+        }
+        
+        .dark .mobile-tab-bar {
+            background-color: #1F2937;
+        }
+        
+        /* Adjust for bottom tab bar */
+        .pb-safe {
+            padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
         }
     </style>
 </head>
-<body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200 pb-6">
+<body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200 pb-safe">
     <div class="container mx-auto px-4 py-6">
         <header class="mb-6 text-center">
             <h1 class="text-2xl font-bold text-primary">Celestial Cafe QR Scanner</h1>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Scan booking QR codes to verify</p>
         </header>
 
-        <div class="mx-auto max-w-lg">
+        <div class="mx-auto">
             <!-- Scanner Container -->
             <div id="scanner-section" class="mb-6">
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden p-4">
-                    <!-- Tabs -->
-                    <div class="flex justify-between border-b border-gray-200 dark:border-gray-700 mb-4">
-                        <button id="tabCamera" class="flex-1 py-3 px-2 text-sm font-medium text-primary border-b-2 border-primary">
-                            Camera
-                        </button>
-                        <button id="tabPhoto" class="flex-1 py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400 border-b-2 border-transparent">
-                            Photo
-                        </button>
-                        <button id="tabManual" class="flex-1 py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400 border-b-2 border-transparent">
-                            Manual
-                        </button>
+                <!-- Camera Scanner -->
+                <div id="cameraScanner" class="scanner-tab">
+                    <div id="readerContainer" class="relative w-full aspect-square overflow-hidden rounded-lg">
+                        <div id="reader" class="w-full h-full"></div>
+                        <div class="scan-guide">
+                            <div class="scan-corner top-left"></div>
+                            <div class="scan-corner top-right"></div>
+                            <div class="scan-corner bottom-left"></div>
+                            <div class="scan-corner bottom-right"></div>
+                        </div>
                     </div>
-                    
-                    <!-- Camera Scanner -->
-                    <div id="cameraScanner" class="scanner-tab">
-                        <div id="videoContainer" class="mb-4">
-                            <video id="scanner-video" autoplay playsinline></video>
-                            <div class="scan-guide">
-                                <div class="scan-corner top-left"></div>
-                                <div class="scan-corner top-right"></div>
-                                <div class="scan-corner bottom-left"></div>
-                                <div class="scan-corner bottom-right"></div>
+                    <div class="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center px-6">
+                        Center the QR code within the guide to scan
+                    </div>
+                </div>
+                
+                <!-- File Upload -->
+                <div id="fileScanner" class="scanner-tab hidden">
+                    <div class="flex items-center justify-center w-full">
+                        <label for="qrFileInput" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-10 h-10 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                </svg>
+                                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Tap to upload</span> a photo</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG (MAX. 10MB)</p>
                             </div>
-                        </div>
-                        
-                        <div id="cameraPermissionMessage" class="hidden mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 rounded-lg text-sm">
-                            <p>❗ Camera access is required for scanning. If prompted, please allow camera access.</p>
-                        </div>
-                        
-                        <div class="text-sm text-gray-600 dark:text-gray-400 text-center mb-4 px-4">
-                            <p>Center the QR code in the frame</p>
-                        </div>
-                        
-                        <button id="startCameraBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base">
-                            Start Camera
+                            <input id="qrFileInput" type="file" class="hidden" accept="image/*" capture="environment" />
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Manual Input -->
+                <div id="manualInput" class="scanner-tab hidden">
+                    <div class="space-y-4">
+                        <p class="text-sm">Paste the QR code content below:</p>
+                        <textarea id="qrDataInput" rows="5" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base" placeholder="Paste encrypted QR code data here..."></textarea>
+                        <button id="decodeManualBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
+                            Decode Data
                         </button>
-                        
-                        <div class="text-center mt-3">
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                Having trouble? Try using the Photo or Manual tab instead.
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <!-- Photo Upload -->
-                    <div id="photoScanner" class="scanner-tab hidden">
-                        <div class="mb-4">
-                            <div class="flex items-center justify-center w-full">
-                                <label for="qrFileInput" class="flex flex-col items-center justify-center w-full h-52 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
-                                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <svg class="w-10 h-10 mb-3 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                                        </svg>
-                                        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Tap to upload</span> a photo</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG (MAX. 10MB)</p>
-                                    </div>
-                                    <input id="qrFileInput" type="file" class="hidden" accept="image/*" />
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div class="text-center mt-2 mb-4">
-                            <p class="text-sm text-gray-600 dark:text-gray-400">
-                                Take a clear photo of the QR code
-                            </p>
-                        </div>
-                        
-                        <div class="flex items-center justify-center space-x-2">
-                            <button id="openNativeCameraBtn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base">
-                                Open Camera App
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Manual Input -->
-                    <div id="manualInput" class="scanner-tab hidden">
-                        <div class="space-y-4">
-                            <p class="text-sm">Paste the QR code content below:</p>
-                            <textarea id="qrDataInput" rows="5" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700" placeholder="Paste encrypted QR code data here..."></textarea>
-                            <button id="decodeManualBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base">
-                                Decode Data
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Results Container -->
-            <div id="resultContainer" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hidden mb-6">
+            <div id="resultContainer" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hidden mb-20">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold">Booking Details</h2>
                     <div class="bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-sm font-medium">
@@ -277,30 +268,51 @@
                     </div>
                 </div>
                 <div id="bookingInfo" class="space-y-2"></div>
-                <button id="backToScannerBtn" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base">
+                <button id="backToScannerBtn" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                     Scan Another Code
                 </button>
             </div>
 
             <!-- Error Container -->
-            <div id="errorContainer" class="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg shadow-md mt-6 hidden mb-6">
+            <div id="errorContainer" class="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg shadow-md mt-6 hidden mb-20">
                 <h2 class="text-xl font-semibold mb-2 text-red-700 dark:text-red-400">Error</h2>
                 <p id="errorMessage" class="text-red-600 dark:text-red-300"></p>
-                <button id="dismissErrorBtn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base">
+                <button id="dismissErrorBtn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                     Dismiss
                 </button>
             </div>
+        </div>
+
+        <!-- Mobile bottom navigation -->
+        <div class="mobile-tab-bar shadow-lg border-t border-gray-200 dark:border-gray-700">
+            <div class="grid grid-cols-3 h-16">
+                <button id="mobileTabCamera" class="flex flex-col items-center justify-center text-primary border-t-2 border-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="text-xs mt-1">Camera</span>
+                </button>
+                <button id="mobileTabFile" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-xs mt-1">Image</span>
+                </button>
+                <button id="mobileTabManual" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span class="text-xs mt-1">Manual</span>
+                </button>
+            </div>
+            <div class="h-safe-bottom bg-white dark:bg-gray-800"></div>
         </div>
 
         <!-- Toggle theme button (floating) -->
         <button id="toggleTheme" class="fixed top-4 right-4 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold p-2 rounded-full transition-colors shadow-lg">
             <span id="themeIcon" class="text-xl">🌙</span>
         </button>
-
-        <!-- Footer -->
-        <footer class="mt-8 py-4 text-center text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-800">
-            <p>© 2025 Mikazuki Fox / Leo Chan</p>
-        </footer>
     </div>
 
     <script>
@@ -404,6 +416,22 @@
             }, 3000);
         }
 
+        // Show scan success indicator
+        function showScanSuccess() {
+            const readerContainer = document.getElementById('readerContainer');
+            const indicator = document.createElement('div');
+            indicator.className = 'scan-indicator';
+            
+            readerContainer.appendChild(indicator);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                if (readerContainer.contains(indicator)) {
+                    readerContainer.removeChild(indicator);
+                }
+            }, 1000);
+        }
+
         // Function to display booking information
         function displayBookingInfo(booking) {
             // Show results container with animation
@@ -461,6 +489,41 @@
             `;
         }
 
+        // Function to handle QR code scan result
+        function onScanSuccess(decodedText) {
+            // Stop the scanner
+            html5QrScanner.pause();
+            
+            try {
+                // Show visual success indicators
+                showScanSuccess();
+                showToast("QR Code successfully scanned!");
+                
+                // Play success sound
+                beepSuccess();
+                
+                // Decrypt and display booking info
+                const bookingData = decryptBookingData(decodedText);
+                
+                // Small delay to allow visual animation before showing results
+                setTimeout(() => {
+                    displayBookingInfo(bookingData);
+                    
+                    // Hide scanner tabs
+                    document.querySelectorAll('.scanner-tab').forEach(tab => {
+                        tab.classList.add('hidden');
+                    });
+                }, 500);
+                
+            } catch (error) {
+                showError(error.message);
+                console.error('Decryption error:', error);
+                
+                // Restart scanner
+                html5QrScanner.resume();
+            }
+        }
+
         // Function to show error
         function showError(message) {
             const errorContainer = document.getElementById('errorContainer');
@@ -505,39 +568,53 @@
             }
         }
 
-        // Tab switching logic
-        document.getElementById('tabCamera').addEventListener('click', () => {
+        // Tab switching logic - Mobile
+        document.getElementById('mobileTabCamera').addEventListener('click', () => {
             showTab('cameraScanner');
-            updateActiveTab('tabCamera');
+            updateActiveMobileTab('mobileTabCamera');
+            
+            // Resume scanner if it was paused
+            if (html5QrScanner) {
+                html5QrScanner.resume();
+            }
         });
         
-        document.getElementById('tabPhoto').addEventListener('click', () => {
-            showTab('photoScanner');
-            updateActiveTab('tabPhoto');
-            stopScanner();
+        document.getElementById('mobileTabFile').addEventListener('click', () => {
+            showTab('fileScanner');
+            updateActiveMobileTab('mobileTabFile');
+            
+            // Pause camera if running
+            if (html5QrScanner) {
+                html5QrScanner.pause();
+            }
         });
         
-        document.getElementById('tabManual').addEventListener('click', () => {
+        document.getElementById('mobileTabManual').addEventListener('click', () => {
             showTab('manualInput');
-            updateActiveTab('tabManual');
-            stopScanner();
+            updateActiveMobileTab('mobileTabManual');
+            
+            // Pause camera if running
+            if (html5QrScanner) {
+                html5QrScanner.pause();
+            }
         });
         
-        function updateActiveTab(activeTabId) {
+        function updateActiveMobileTab(activeTabId) {
             // Remove active state from all tabs
-            document.querySelectorAll('#scanner-section button[id^="tab"]').forEach(tab => {
-                tab.classList.remove('text-primary', 'border-b-2', 'border-primary');
-                tab.classList.add('text-gray-500', 'dark:text-gray-400', 'border-transparent');
+            document.querySelectorAll('.mobile-tab-bar button').forEach(tab => {
+                tab.classList.remove('text-primary', 'border-t-2', 'border-primary');
+                tab.classList.add('text-gray-500', 'dark:text-gray-400');
             });
             
             // Add active state to selected tab
-            document.getElementById(activeTabId).classList.remove('text-gray-500', 'dark:text-gray-400', 'border-transparent');
-            document.getElementById(activeTabId).classList.add('text-primary', 'border-b-2', 'border-primary');
+            document.getElementById(activeTabId).classList.remove('text-gray-500', 'dark:text-gray-400');
+            document.getElementById(activeTabId).classList.add('text-primary', 'border-t-2', 'border-primary');
         }
         
         function showTab(tabId) {
             // Hide error and result containers
             document.getElementById('errorContainer').classList.add('hidden');
+            document.getElementById('resultContainer').classList.add('hidden');
             
             // Show scanner section
             document.getElementById('scanner-section').classList.remove('hidden');
@@ -551,94 +628,6 @@
             document.getElementById(tabId).classList.remove('hidden');
         }
 
-        // Camera Scanner
-        let qrScanner = null;
-        
-        document.getElementById('startCameraBtn').addEventListener('click', startCameraScanner);
-        
-        function startCameraScanner() {
-            const videoElement = document.getElementById('scanner-video');
-            const permissionMessage = document.getElementById('cameraPermissionMessage');
-            const startButton = document.getElementById('startCameraBtn');
-            
-            // Update button text
-            startButton.textContent = 'Starting camera...';
-            startButton.disabled = true;
-            
-            // Show permission message
-            permissionMessage.classList.remove('hidden');
-            
-            // Initialize QR Scanner with the more iOS-friendly library
-            qrScanner = new QrScanner(
-                videoElement,
-                result => {
-                    // Stop scanning
-                    qrScanner.stop();
-                    
-                    // Process the result
-                    try {
-                        // Show success notification
-                        showToast("QR Code successfully scanned!");
-                        beepSuccess();
-                        
-                        // Decrypt the data
-                        const bookingData = decryptBookingData(result.data);
-                        
-                        // Display the booking info
-                        setTimeout(() => {
-                            displayBookingInfo(bookingData);
-                        }, 500);
-                    } catch (error) {
-                        showError(error.message);
-                    }
-                },
-                {
-                    highlightScanRegion: true,
-                    highlightCodeOutline: true,
-                    returnDetailedScanResult: true
-                }
-            );
-            
-            // Start scanner
-            qrScanner.start()
-                .then(() => {
-                    // Hide permission message
-                    permissionMessage.classList.add('hidden');
-                    
-                    // Update button
-                    startButton.textContent = 'Restart Camera';
-                    startButton.disabled = false;
-                })
-                .catch(error => {
-                    console.error('Camera start error:', error);
-                    
-                    // Update permission message
-                    permissionMessage.innerHTML = `
-                        <p>❌ Camera access denied or error. Please:</p>
-                        <ul class="list-disc pl-5 mt-2">
-                            <li>Check camera permissions in your browser settings</li>
-                            <li>Try using the "Photo" or "Manual" options instead</li>
-                            <li>On iOS, try using Safari instead of Chrome</li>
-                        </ul>
-                    `;
-                    
-                    // Update button
-                    startButton.textContent = 'Try Again';
-                    startButton.disabled = false;
-                });
-        }
-        
-        function stopScanner() {
-            if (qrScanner) {
-                qrScanner.stop();
-            }
-        }
-
-        // Open Native Camera App (more reliable on iOS)
-        document.getElementById('openNativeCameraBtn').addEventListener('click', function() {
-            document.getElementById('qrFileInput').click();
-        });
-
         // File input handling
         document.getElementById('qrFileInput').addEventListener('change', event => {
             const file = event.target.files[0];
@@ -646,27 +635,38 @@
             
             const reader = new FileReader();
             reader.onload = () => {
-                // Use QR Scanner's static scan method for image files
-                QrScanner.scanImage(file)
-                    .then(result => {
-                        // Show toast and sound notification
-                        showToast("QR Code successfully scanned from image!");
-                        beepSuccess();
-                        
-                        // Process the data
-                        try {
-                            const bookingData = decryptBookingData(result);
-                            setTimeout(() => {
-                                displayBookingInfo(bookingData);
-                            }, 500);
-                        } catch (error) {
-                            showError(error.message);
+                const img = new Image();
+                img.onload = () => {
+                    // Using HTML5-QRCode to decode image
+                    const config = { 
+                        experimentalFeatures: {
+                            useBarCodeDetectorIfSupported: true
                         }
-                    })
-                    .catch(error => {
-                        showError("Could not detect a QR code in this image. Please try another image or use the camera scanner.");
-                        console.error("QR code scan error:", error);
-                    });
+                    };
+                    
+                    const html5QrCode = new Html5Qrcode("reader");
+                    html5QrCode.scanImage(img)
+                        .then(decodedText => {
+                            // Show toast and sound notification
+                            showToast("QR Code successfully scanned from image!");
+                            beepSuccess();
+                            
+                            // Process the data
+                            try {
+                                const bookingData = decryptBookingData(decodedText);
+                                setTimeout(() => {
+                                    displayBookingInfo(bookingData);
+                                }, 500);
+                            } catch (error) {
+                                showError(error.message);
+                            }
+                        })
+                        .catch(error => {
+                            showError("Could not detect a QR code in this image. Please try another image or use the camera scanner.");
+                            console.error("QR code scan error:", error);
+                        });
+                };
+                img.src = reader.result;
             };
             reader.readAsDataURL(file);
         });
@@ -700,6 +700,11 @@
             document.getElementById('resultContainer').classList.remove('result-enter');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
+            
+            // Restart scanner
+            if (html5QrScanner) {
+                html5QrScanner.resume();
+            }
         });
 
         // Dismiss error button
@@ -707,7 +712,52 @@
             document.getElementById('errorContainer').classList.add('hidden');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
+            
+            // Restart scanner
+            if (html5QrScanner) {
+                html5QrScanner.resume();
+            }
         });
+
+        // Initialize QR Scanner
+        let html5QrScanner;
+        function initScanner() {
+            const config = { 
+                fps: 15, // Higher FPS for better mobile experience
+                qrbox: { width: 250, height: 250 },
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                },
+                rememberLastUsedCamera: true,
+                aspectRatio: 1, // Square aspect ratio
+                showTorchButtonIfSupported: true, // Show flashlight button
+                showZoomSliderIfSupported: true, // Show zoom slider
+            };
+            
+            html5QrScanner = new Html5Qrcode("reader");
+            
+            // First try to use the back camera
+            html5QrScanner.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess
+            ).catch((err) => {
+                console.error("Back camera error: ", err);
+                
+                // If back camera fails, try any available camera
+                html5QrScanner.start(
+                    { facingMode: "user" }, 
+                    config, 
+                    onScanSuccess
+                ).catch((err2) => {
+                    console.error("All camera access error: ", err2);
+                    showError("Camera access error. Please ensure your device has a camera and you've granted permission.");
+                });
+            });
+        }
+
+        // Start the scanner when the page loads
+        window.addEventListener('load', initScanner);
     </script>
 </body>
 </html>
