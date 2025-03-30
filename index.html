@@ -449,9 +449,9 @@
             </div>
         </div>
 
-        <!-- Footer with timestamp -->
+        <!-- Simple version timestamp -->
         <div class="fixed bottom-20 left-0 right-0 text-center text-xs text-gray-500 dark:text-gray-400 py-2">
-            <p>Version: <span id="versionTimestamp"></span></p>
+            <p>v20250330 2000</p>
         </div>
 
         <!-- Mobile bottom navigation -->
@@ -481,9 +481,6 @@
     </div>
 
     <script>
-        // Set the version timestamp when the page loads
-        document.getElementById('versionTimestamp').textContent = new Date().toLocaleString();
-
         // Check for dark mode preference
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
