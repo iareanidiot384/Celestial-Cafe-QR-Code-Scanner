@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Celestial Cafe QR Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Using HTML5-QRCode library for better scanning -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Using jsQR for best compatibility -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -33,39 +33,79 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* Optimize scanner for mobile */
-        #reader {
-            border: none !important;
-            width: 100% !important;
-        }
-        
-        /* Important fix for the iOS squashed scan area */
-        #reader video {
-            object-fit: cover !important;
-            height: 100% !important;
-            width: 100% !important;
-        }
-        
-        /* Force the reader container to be square */
-        #readerContainer {
+        /* Camera and canvas styling */
+        #camera-container {
             position: relative;
             width: 100%;
-            padding-bottom: 100%; /* Creates a square aspect ratio */
+            padding-top: 100%; /* 1:1 aspect ratio */
             overflow: hidden;
             border-radius: 0.5rem;
+            background-color: #000;
         }
         
-        #reader {
-            position: absolute !important;
+        #camera-view {
+            position: absolute;
             top: 0;
             left: 0;
-            width: 100% !important;
-            height: 100% !important;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         
-        /* Hide HTML5QrCode powered by text */
-        .html5-qrcode-element {
-            font-size: 0 !important;
+        #camera-canvas {
+            display: none;
+        }
+        
+        /* Scanning guide overlay */
+        .scan-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 70%;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        .scan-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+        }
+        
+        .top-left {
+            top: -2px;
+            left: -2px;
+            border-top: 4px solid #5D5CDE;
+            border-left: 4px solid #5D5CDE;
+            border-top-left-radius: 15px;
+        }
+        
+        .top-right {
+            top: -2px;
+            right: -2px;
+            border-top: 4px solid #5D5CDE;
+            border-right: 4px solid #5D5CDE;
+            border-top-right-radius: 15px;
+        }
+        
+        .bottom-left {
+            bottom: -2px;
+            left: -2px;
+            border-bottom: 4px solid #5D5CDE;
+            border-left: 4px solid #5D5CDE;
+            border-bottom-left-radius: 15px;
+        }
+        
+        .bottom-right {
+            bottom: -2px;
+            right: -2px;
+            border-bottom: 4px solid #5D5CDE;
+            border-right: 4px solid #5D5CDE;
+            border-bottom-right-radius: 15px;
         }
         
         /* Toast notification styling */
@@ -87,6 +127,11 @@
 
         .toast-success {
             background-color: #10B981;
+            color: white;
+        }
+        
+        .toast-error {
+            background-color: #EF4444;
             color: white;
         }
 
@@ -153,59 +198,6 @@
             }
         }
         
-        /* Scanning guide overlay - FIXED for proper aspect ratio */
-        .scan-guide {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70%;
-            height: 70%;
-            border: 2px dashed rgba(255, 255, 255, 0.5);
-            border-radius: 20px;
-            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.3);
-            pointer-events: none;
-            z-index: 5;
-        }
-        
-        .scan-corner {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-        }
-        
-        .top-left {
-            top: -2px;
-            left: -2px;
-            border-top: 4px solid #5D5CDE;
-            border-left: 4px solid #5D5CDE;
-            border-top-left-radius: 15px;
-        }
-        
-        .top-right {
-            top: -2px;
-            right: -2px;
-            border-top: 4px solid #5D5CDE;
-            border-right: 4px solid #5D5CDE;
-            border-top-right-radius: 15px;
-        }
-        
-        .bottom-left {
-            bottom: -2px;
-            left: -2px;
-            border-bottom: 4px solid #5D5CDE;
-            border-left: 4px solid #5D5CDE;
-            border-bottom-left-radius: 15px;
-        }
-        
-        .bottom-right {
-            bottom: -2px;
-            right: -2px;
-            border-bottom: 4px solid #5D5CDE;
-            border-right: 4px solid #5D5CDE;
-            border-bottom-right-radius: 15px;
-        }
-        
         /* Mobile bottom navigation */
         .mobile-tab-bar {
             position: fixed;
@@ -218,6 +210,27 @@
         
         .dark .mobile-tab-bar {
             background-color: #1F2937;
+        }
+        
+        /* Loading spinner */
+        .loading-spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-top: 3px solid #5D5CDE;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        .dark .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #5D5CDE;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         /* Adjust for bottom tab bar */
@@ -238,8 +251,9 @@
             <div id="scanner-section" class="mb-6">
                 <!-- Camera Scanner -->
                 <div id="cameraScanner" class="scanner-tab">
-                    <div id="readerContainer">
-                        <div id="reader"></div>
+                    <div id="camera-container" class="bg-black relative">
+                        <video id="camera-view" autoplay playsinline muted></video>
+                        <canvas id="camera-canvas"></canvas>
                         <div class="scan-guide">
                             <div class="scan-corner top-left"></div>
                             <div class="scan-corner top-right"></div>
@@ -247,34 +261,29 @@
                             <div class="scan-corner bottom-right"></div>
                         </div>
                     </div>
-                    <div class="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center px-6">
+                    
+                    <div id="camera-status" class="mt-3 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-yellow-800 dark:text-yellow-200 text-sm hidden">
+                        <p>Camera access required. Please allow camera permission when prompted.</p>
+                    </div>
+                    
+                    <div class="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center">
                         Center the QR code within the guide to scan
                     </div>
-                </div>
-                
-                <!-- File Upload -->
-                <div id="fileScanner" class="scanner-tab hidden">
-                    <div class="flex items-center justify-center w-full">
-                        <label for="qrFileInput" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                <svg class="w-10 h-10 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                                </svg>
-                                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Tap to upload</span> a photo</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG (MAX. 10MB)</p>
-                            </div>
-                            <input id="qrFileInput" type="file" class="hidden" accept="image/*" capture="environment" />
-                        </label>
+                    
+                    <div class="flex gap-2 mt-4">
+                        <button id="startCameraBtn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                            Start Camera
+                        </button>
                     </div>
                 </div>
                 
                 <!-- Manual Input -->
                 <div id="manualInput" class="scanner-tab hidden">
                     <div class="space-y-4">
-                        <p class="text-sm">Paste the QR code content below:</p>
-                        <textarea id="qrDataInput" rows="5" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base" placeholder="Paste encrypted QR code data here..."></textarea>
-                        <button id="decodeManualBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
-                            Decode Data
+                        <p class="text-sm">Enter booking verification code:</p>
+                        <input type="text" id="bookingCodeInput" class="w-full px-4 py-3 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base font-mono tracking-wider text-center text-lg uppercase" placeholder="Enter code (e.g. ABC123)" maxlength="6">
+                        <button id="verifyCodeBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
+                            Verify Code
                         </button>
                     </div>
                 </div>
@@ -283,12 +292,32 @@
             <!-- Results Container -->
             <div id="resultContainer" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hidden mb-20">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">Booking Details</h2>
+                    <h2 class="text-xl font-semibold">Booking Verified</h2>
                     <div class="bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-sm font-medium">
-                        Verified ✓
+                        Valid ✓
                     </div>
                 </div>
-                <div id="bookingInfo" class="space-y-2"></div>
+                <div id="verificationResult" class="space-y-2">
+                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div class="text-center mb-3">
+                            <p class="text-lg font-bold font-mono">[BOOKING CODE]</p>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
+                                <span class="font-medium">Customer:</span>
+                                <span>...</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
+                                <span class="font-medium">Timeslot:</span>
+                                <span>...</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
+                                <span class="font-medium">Seat:</span>
+                                <span>...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <button id="backToScannerBtn" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                     Scan Another Code
                 </button>
@@ -306,19 +335,13 @@
 
         <!-- Mobile bottom navigation -->
         <div class="mobile-tab-bar shadow-lg border-t border-gray-200 dark:border-gray-700">
-            <div class="grid grid-cols-3 h-16">
+            <div class="grid grid-cols-2 h-16">
                 <button id="mobileTabCamera" class="flex flex-col items-center justify-center text-primary border-t-2 border-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <span class="text-xs mt-1">Camera</span>
-                </button>
-                <button id="mobileTabFile" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-xs mt-1">Image</span>
                 </button>
                 <button id="mobileTabManual" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -331,12 +354,51 @@
         </div>
 
         <!-- Toggle theme button (floating) -->
-        <button id="toggleTheme" class="fixed top-4 right-4 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold p-2 rounded-full transition-colors shadow-lg">
+        <button id="toggleTheme" class="fixed top-4 right-4 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold p-2 rounded-full transition-colors shadow-lg z-10">
             <span id="themeIcon" class="text-xl">🌙</span>
         </button>
     </div>
 
     <script>
+        // Mock database of bookings (in a real app, this would come from your server or local storage)
+        // This simulates the bookings you'd retrieve from your storage
+        const mockBookingDatabase = [
+            {
+                bookingCode: "ABC123",
+                customerName: "John Smith",
+                contactMedium: "Email",
+                username: "john@example.com",
+                timeslot: "1400 - 1530",
+                dishes: [
+                    { name: "Basque cake", quantity: "2" },
+                    { name: "Celestial Cupcake", quantity: "1" }
+                ],
+                seatNumber: "A1"
+            },
+            {
+                bookingCode: "XYZ789",
+                customerName: "Jane Doe",
+                contactMedium: "Telegram",
+                username: "@janedoe",
+                timeslot: "1600 - 1730",
+                dishes: [
+                    { name: "Celestial Cupcake", quantity: "3" }
+                ],
+                seatNumber: "A2"
+            }
+        ];
+        
+        // In a real application, replace this with actual data from your server or storage
+        function findBookingByCode(code) {
+            // Strip any prefix like "CAFE-" that might be in the QR code
+            const cleanCode = code.replace(/^CAFE-/i, '');
+            
+            // Find the matching booking
+            return mockBookingDatabase.find(booking => 
+                booking.bookingCode.toUpperCase() === cleanCode.toUpperCase()
+            );
+        }
+
         // Check for dark mode preference
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
@@ -360,48 +422,6 @@
             const isDark = document.documentElement.classList.contains('dark');
             document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
         });
-
-        // Caesar cipher decryption function (using shift -3)
-        function caesarDecrypt(text, shift = 3) {
-            return text.split('').map(char => {
-                const code = char.charCodeAt(0);
-                // Handle uppercase letters
-                if (code >= 65 && code <= 90) {
-                    return String.fromCharCode(((code - 65 + (26 - shift)) % 26) + 65);
-                }
-                // Handle lowercase letters
-                else if (code >= 97 && code <= 122) {
-                    return String.fromCharCode(((code - 97 + (26 - shift)) % 26) + 97);
-                }
-                // Return unchanged for non-alphabetic characters
-                return char;
-            }).join('');
-        }
-
-        // Base64 decoding function
-        function decodeBase64(str) {
-            try {
-                return decodeURIComponent(atob(str));
-            } catch (e) {
-                console.error('Error decoding base64:', e);
-                throw new Error('Invalid Base64 data');
-            }
-        }
-
-        // Function to decrypt booking data
-        function decryptBookingData(encryptedData, shift = 3) {
-            try {
-                console.log('Encrypted data:', encryptedData);
-                const decodedBase64 = decodeBase64(encryptedData);
-                console.log('Base64 decoded:', decodedBase64);
-                const decrypted = caesarDecrypt(decodedBase64, shift);
-                console.log('Caesar decrypted:', decrypted);
-                return JSON.parse(decrypted);
-            } catch (error) {
-                console.error('Error decrypting data:', error);
-                throw new Error('Unable to decrypt QR code data. This may not be a valid booking QR code.');
-            }
-        }
 
         // Show toast notification
         function showToast(message, type = 'success') {
@@ -439,22 +459,22 @@
 
         // Show scan success indicator
         function showScanSuccess() {
-            const readerContainer = document.getElementById('readerContainer');
+            const container = document.getElementById('camera-container');
             const indicator = document.createElement('div');
             indicator.className = 'scan-indicator';
             
-            readerContainer.appendChild(indicator);
+            container.appendChild(indicator);
             
             // Remove after animation completes
             setTimeout(() => {
-                if (readerContainer.contains(indicator)) {
-                    readerContainer.removeChild(indicator);
+                if (container.contains(indicator)) {
+                    container.removeChild(indicator);
                 }
             }, 1000);
         }
 
-        // Function to display booking information
-        function displayBookingInfo(booking) {
+        // Function to display booking verification result
+        function displayVerificationResult(booking) {
             // Show results container with animation
             const resultContainer = document.getElementById('resultContainer');
             resultContainer.classList.remove('hidden');
@@ -463,86 +483,52 @@
             // Hide scanner section
             document.getElementById('scanner-section').classList.add('hidden');
             
-            // Generate HTML for the dishes
+            // Generate dishes HTML
             let dishesHtml = '';
-            if (booking.dishes && Array.isArray(booking.dishes)) {
-                dishesHtml = '<div class="mt-2">';
+            if (booking.dishes && booking.dishes.length > 0) {
+                dishesHtml = `<div class="mt-2">`;
                 booking.dishes.forEach(dish => {
-                    dishesHtml += `<div class="ml-4 flex justify-between"><span>• ${dish.name}</span> <span class="font-medium">${dish.quantity}</span></div>`;
+                    dishesHtml += `<div class="ml-4 flex justify-between">
+                        <span>• ${dish.name}</span>
+                        <span class="font-medium">${dish.quantity}</span>
+                    </div>`;
                 });
-                dishesHtml += '</div>';
-            } else if (booking.selectedDish) {
-                // Legacy format
-                dishesHtml = `<div class="mt-2"><div class="ml-4 flex justify-between"><span>• ${booking.selectedDish}</span> <span class="font-medium">${booking.dishQuantity}</span></div></div>`;
+                dishesHtml += `</div>`;
             }
             
-            // Display booking details
-            const bookingInfo = document.getElementById('bookingInfo');
-            bookingInfo.innerHTML = `
+            // Display verification result
+            const verificationResult = document.getElementById('verificationResult');
+            verificationResult.innerHTML = `
                 <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div class="text-center mb-3">
+                        <p class="text-lg font-bold font-mono">${booking.bookingCode}</p>
+                    </div>
                     <div class="space-y-3">
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Customer:</span>
                             <span>${booking.customerName}</span>
                         </div>
-                        
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Contact:</span>
                             <span>${booking.contactMedium}: ${booking.username}</span>
                         </div>
-                        
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Timeslot:</span>
                             <span>${booking.timeslot}</span>
                         </div>
-                        
                         <div class="flex justify-between border-b border-gray-200 dark:border-gray-600 pb-2">
                             <span class="font-medium">Seat:</span>
                             <span>${booking.seatNumber}</span>
                         </div>
-                        
                         <div>
-                            <div class="font-medium border-b border-gray-200 dark:border-gray-600 pb-2">Selected Dishes:</div>
+                            <div class="font-medium border-b border-gray-200 dark:border-gray-600 pb-2">
+                                Selected Dishes:
+                            </div>
                             ${dishesHtml}
                         </div>
                     </div>
                 </div>
             `;
-        }
-
-        // Function to handle QR code scan result
-        function onScanSuccess(decodedText) {
-            // Stop the scanner
-            html5QrScanner.pause();
-            
-            try {
-                // Show visual success indicators
-                showScanSuccess();
-                showToast("QR Code successfully scanned!");
-                
-                // Play success sound
-                beepSuccess();
-                
-                // Decrypt and display booking info
-                const bookingData = decryptBookingData(decodedText);
-                
-                // Small delay to allow visual animation before showing results
-                setTimeout(() => {
-                    displayBookingInfo(bookingData);
-                    
-                    // Hide scanner tabs
-                    document.querySelectorAll('.scanner-tab').forEach(tab => {
-                        tab.classList.add('hidden');
-                    });
-                }, 500);
-                
-            } catch (error) {
-                showError(error.message);
-                console.error('Decryption error:', error);
-                
-                // Restart scanner
-                html5QrScanner.resume();
-            }
         }
 
         // Function to show error
@@ -589,35 +575,43 @@
             }
         }
 
+        // Process the scanned booking code
+        function processBookingCode(scannedCode) {
+            // Strip any prefix
+            let bookingCode = scannedCode;
+            
+            // If the format is CAFE-CODE, extract just the code part
+            if (scannedCode.startsWith('CAFE-')) {
+                bookingCode = scannedCode.substring(5);
+            }
+            
+            // Find the booking in our database
+            const booking = findBookingByCode(bookingCode);
+            
+            if (booking) {
+                // Show success indicators
+                showToast("Booking verified successfully!");
+                beepSuccess();
+                
+                // Display the booking details
+                setTimeout(() => {
+                    displayVerificationResult(booking);
+                }, 500);
+            } else {
+                showError(`Booking code "${bookingCode}" not found. Please verify and try again.`);
+            }
+        }
+
         // Tab switching logic - Mobile
         document.getElementById('mobileTabCamera').addEventListener('click', () => {
             showTab('cameraScanner');
             updateActiveMobileTab('mobileTabCamera');
-            
-            // Resume scanner if it was paused
-            if (html5QrScanner) {
-                html5QrScanner.resume();
-            }
-        });
-        
-        document.getElementById('mobileTabFile').addEventListener('click', () => {
-            showTab('fileScanner');
-            updateActiveMobileTab('mobileTabFile');
-            
-            // Pause camera if running
-            if (html5QrScanner) {
-                html5QrScanner.pause();
-            }
         });
         
         document.getElementById('mobileTabManual').addEventListener('click', () => {
             showTab('manualInput');
             updateActiveMobileTab('mobileTabManual');
-            
-            // Pause camera if running
-            if (html5QrScanner) {
-                html5QrScanner.pause();
-            }
+            stopCamera();
         });
         
         function updateActiveMobileTab(activeTabId) {
@@ -649,70 +643,143 @@
             document.getElementById(tabId).classList.remove('hidden');
         }
 
-        // File input handling
-        document.getElementById('qrFileInput').addEventListener('change', event => {
-            const file = event.target.files[0];
-            if (!file) return;
+        // Camera handling
+        let video = document.getElementById('camera-view');
+        let canvas = document.getElementById('camera-canvas');
+        let context = canvas.getContext('2d');
+        let scanInterval;
+        let mediaStream = null;
+        
+        // Start Camera button
+        document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+        
+        // Start the camera
+        function startCamera() {
+            const startBtn = document.getElementById('startCameraBtn');
+            const statusMsg = document.getElementById('camera-status');
             
-            const reader = new FileReader();
-            reader.onload = () => {
-                const img = new Image();
-                img.onload = () => {
-                    // Using HTML5-QRCode to decode image
-                    const config = { 
-                        experimentalFeatures: {
-                            useBarCodeDetectorIfSupported: true
-                        }
+            // Update button state
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<div class="loading-spinner"></div> Starting camera...';
+            statusMsg.classList.remove('hidden');
+            
+            // Set up camera
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                // Request camera access with specific constraints for iOS
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment', // Use back camera
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                })
+                .then(function(stream) {
+                    mediaStream = stream;
+                    video.srcObject = stream;
+                    
+                    // Set canvas dimensions based on video dimensions
+                    video.onloadedmetadata = function() {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        
+                        // Update UI
+                        startBtn.innerHTML = 'Restart Camera';
+                        startBtn.disabled = false;
+                        statusMsg.classList.add('hidden');
+                        
+                        // Start continuous scanning
+                        scanInterval = setInterval(scanQRCode, 500);
                     };
                     
-                    const html5QrCode = new Html5Qrcode("reader");
-                    html5QrCode.scanImage(img)
-                        .then(decodedText => {
-                            // Show toast and sound notification
-                            showToast("QR Code successfully scanned from image!");
-                            beepSuccess();
-                            
-                            // Process the data
-                            try {
-                                const bookingData = decryptBookingData(decodedText);
-                                setTimeout(() => {
-                                    displayBookingInfo(bookingData);
-                                }, 500);
-                            } catch (error) {
-                                showError(error.message);
-                            }
-                        })
-                        .catch(error => {
-                            showError("Could not detect a QR code in this image. Please try another image or use the camera scanner.");
-                            console.error("QR code scan error:", error);
-                        });
-                };
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // Manual input handling
-        document.getElementById('decodeManualBtn').addEventListener('click', () => {
-            const qrData = document.getElementById('qrDataInput').value.trim();
-            if (!qrData) {
-                showError("Please enter QR code data.");
+                    return video.play();
+                })
+                .catch(function(error) {
+                    console.error('Camera access error:', error);
+                    startBtn.innerHTML = 'Start Camera';
+                    startBtn.disabled = false;
+                    
+                    statusMsg.innerHTML = `
+                        <p>❗ Camera access denied or error.</p>
+                        <p class="mt-1">Try using the Manual input option instead.</p>
+                    `;
+                    
+                    showToast("Camera access error. Try the Manual tab instead.", "error");
+                });
+            } else {
+                statusMsg.innerHTML = `
+                    <p>❗ Camera not supported in this browser.</p>
+                    <p class="mt-1">Try using the Manual input option instead.</p>
+                `;
+                startBtn.innerHTML = 'Camera Unavailable';
+                startBtn.disabled = true;
+                
+                showToast("Camera not supported. Try the Manual tab instead.", "error");
+            }
+        }
+        
+        // Stop the camera
+        function stopCamera() {
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+            
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+                video.srcObject = null;
+            }
+            
+            // Reset UI
+            const startBtn = document.getElementById('startCameraBtn');
+            startBtn.innerHTML = 'Start Camera';
+            startBtn.disabled = false;
+        }
+        
+        // Scan for QR codes
+        function scanQRCode() {
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) {
                 return;
             }
             
-            try {
-                const bookingData = decryptBookingData(qrData);
+            // Draw current video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get image data from canvas
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Scan for QR code
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            
+            if (code) {
+                // Clear the scan interval
+                if (scanInterval) {
+                    clearInterval(scanInterval);
+                    scanInterval = null;
+                }
                 
-                // Show success notification
-                showToast("QR Code data successfully decoded!");
-                beepSuccess();
+                // Show success indicators
+                showScanSuccess();
                 
-                setTimeout(() => {
-                    displayBookingInfo(bookingData);
-                }, 500);
-            } catch (error) {
-                showError(error.message);
+                // Process the QR code data
+                processBookingCode(code.data);
             }
+        }
+
+        // Manual verification button
+        document.getElementById('verifyCodeBtn').addEventListener('click', function() {
+            const codeInput = document.getElementById('bookingCodeInput');
+            const bookingCode = codeInput.value.trim().toUpperCase();
+            
+            if (!bookingCode) {
+                showToast("Please enter a booking code", "error");
+                return;
+            }
+            
+            // Process the manually entered code
+            processBookingCode(bookingCode);
         });
 
         // Button to return to scanner
@@ -722,9 +789,9 @@
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
             
-            // Restart scanner
-            if (html5QrScanner) {
-                html5QrScanner.resume();
+            // Restart scanning
+            if (!scanInterval && video.srcObject) {
+                scanInterval = setInterval(scanQRCode, 500);
             }
         });
 
@@ -734,51 +801,11 @@
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
             
-            // Restart scanner
-            if (html5QrScanner) {
-                html5QrScanner.resume();
+            // Restart scanning
+            if (!scanInterval && video.srcObject) {
+                scanInterval = setInterval(scanQRCode, 500);
             }
         });
-
-        // Initialize QR Scanner
-        let html5QrScanner;
-        function initScanner() {
-            const config = { 
-                fps: 15, // Higher FPS for better mobile experience
-                qrbox: { width: 250, height: 250 },
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true
-                },
-                rememberLastUsedCamera: true,
-                aspectRatio: 1, // Square aspect ratio
-                showTorchButtonIfSupported: true, // Show flashlight button
-                showZoomSliderIfSupported: true, // Show zoom slider
-            };
-            
-            html5QrScanner = new Html5Qrcode("reader");
-            
-            // First try to use the back camera
-            html5QrScanner.start(
-                { facingMode: "environment" }, 
-                config, 
-                onScanSuccess
-            ).catch((err) => {
-                console.error("Back camera error: ", err);
-                
-                // If back camera fails, try any available camera
-                html5QrScanner.start(
-                    { facingMode: "user" }, 
-                    config, 
-                    onScanSuccess
-                ).catch((err2) => {
-                    console.error("All camera access error: ", err2);
-                    showError("Camera access error. Please ensure your device has a camera and you've granted permission.");
-                });
-            });
-        }
-
-        // Start the scanner when the page loads
-        window.addEventListener('load', initScanner);
     </script>
 </body>
 </html>
