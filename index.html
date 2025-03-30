@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Enhanced QR Scanner</title>
+    <title>Celestial Cafe QR Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Primary QR library -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Using a simpler QR library that works better on iOS -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -33,18 +33,17 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* Scanner container */
-        #scanner-container {
+        /* Camera and canvas styling */
+        #camera-container {
             position: relative;
             width: 100%;
             padding-top: 100%; /* 1:1 aspect ratio */
-            background-color: #000;
             overflow: hidden;
             border-radius: 0.5rem;
+            background-color: #000;
         }
         
-        /* Video and canvas styling */
-        #scanner-video {
+        #camera-view {
             position: absolute;
             top: 0;
             left: 0;
@@ -53,11 +52,11 @@
             object-fit: cover;
         }
         
-        #scanner-canvas {
+        #camera-canvas {
             display: none;
         }
         
-        /* Enhanced scanning guide overlay */
+        /* Scanning guide overlay */
         .scan-guide {
             position: absolute;
             top: 50%;
@@ -67,22 +66,8 @@
             height: 70%;
             border: 2px dashed rgba(255, 255, 255, 0.5);
             border-radius: 20px;
-            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.3);
             pointer-events: none;
-            z-index: 5;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% {
-                border-color: rgba(255, 255, 255, 0.5);
-            }
-            50% {
-                border-color: rgba(93, 92, 222, 0.8);
-            }
-            100% {
-                border-color: rgba(255, 255, 255, 0.5);
-            }
+            z-index: 2;
         }
         
         .scan-corner {
@@ -123,46 +108,6 @@
             border-bottom-right-radius: 15px;
         }
         
-        /* Scanning laser effect */
-        .scan-line {
-            position: absolute;
-            top: 0;
-            left: 15%;
-            right: 15%;
-            height: 2px;
-            background: rgba(93, 92, 222, 0.8);
-            box-shadow: 0 0 4px 1px rgba(93, 92, 222, 0.5);
-            z-index: 6;
-            animation: scan 2s linear infinite;
-        }
-        
-        @keyframes scan {
-            0% {
-                top: 15%;
-            }
-            50% {
-                top: 85%;
-            }
-            100% {
-                top: 15%;
-            }
-        }
-        
-        /* Scanner status indicators */
-        .status-indicator {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            background-color: rgba(0, 0, 0, 0.6);
-            color: white;
-            font-size: 12px;
-            text-align: center;
-            z-index: 10;
-        }
-        
         /* Toast notification styling */
         .toast-notification {
             position: fixed;
@@ -182,11 +127,6 @@
 
         .toast-success {
             background-color: #10B981;
-            color: white;
-        }
-        
-        .toast-warning {
-            background-color: #F59E0B;
             color: white;
         }
         
@@ -213,6 +153,32 @@
             to {
                 opacity: 0;
                 visibility: hidden;
+            }
+        }
+
+        /* Scanner success indicator */
+        .scan-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 5px solid #10B981;
+            border-radius: 8px;
+            animation: pulseSuccess 1s;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes pulseSuccess {
+            0% {
+                opacity: 0;
+            }
+            50% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 0;
             }
         }
 
@@ -248,205 +214,94 @@
         
         /* Loading spinner */
         .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-top: 3px solid #5D5CDE;
             border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
             margin-right: 8px;
-            vertical-align: middle;
+        }
+        
+        .dark .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #5D5CDE;
         }
         
         @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Debug capture area */
-        #debug-capture {
-            display: none;
-            max-width: 100%;
-            border: 2px solid #EF4444;
-            margin-top: 10px;
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         /* Adjust for bottom tab bar */
         .pb-safe {
             padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
         }
-
-        /* Custom toggle switch */
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background-color: #5D5CDE;
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(26px);
-        }
-        
-        /* Camera switch button */
-        #switch-camera-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-            cursor: pointer;
-        }
-        
-        #switch-camera-btn svg {
-            width: 24px;
-            height: 24px;
-            color: white;
-        }
     </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-200 pb-safe">
     <div class="container mx-auto px-4 py-6">
-        <header class="mb-4 text-center">
-            <h1 class="text-2xl font-bold text-primary">Enhanced QR Scanner</h1>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">For complex encrypted booking QR codes</p>
+        <header class="mb-6 text-center">
+            <h1 class="text-2xl font-bold text-primary">Celestial Cafe QR Scanner</h1>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Scan booking QR codes to verify</p>
         </header>
 
-        <div class="mx-auto max-w-lg">
+        <div class="mx-auto">
             <!-- Scanner Container -->
             <div id="scanner-section" class="mb-6">
                 <!-- Camera Scanner -->
                 <div id="cameraScanner" class="scanner-tab">
-                    <div id="scanner-container" class="mb-4">
-                        <video id="scanner-video" autoplay playsinline muted></video>
-                        <canvas id="scanner-canvas"></canvas>
+                    <div id="camera-container" class="bg-black relative">
+                        <video id="camera-view" autoplay playsinline muted></video>
+                        <canvas id="camera-canvas"></canvas>
                         <div class="scan-guide">
                             <div class="scan-corner top-left"></div>
                             <div class="scan-corner top-right"></div>
                             <div class="scan-corner bottom-left"></div>
                             <div class="scan-corner bottom-right"></div>
                         </div>
-                        <div class="scan-line"></div>
-                        <button id="switch-camera-btn" title="Switch Camera" class="hidden">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </button>
-                        <div id="status-indicator" class="status-indicator hidden">
-                            <span id="status-text">Initializing camera...</span>
-                        </div>
                     </div>
                     
-                    <div id="scanner-options" class="mb-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium">Advanced Scan Mode</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="advanced-mode" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium">Show Debug Info</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="debug-mode">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium">Encryption Key</span>
-                            <select id="encryption-key" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded px-2 py-1 text-sm">
-                                <option value="3" selected>3 (Default)</option>
-                                <option value="2">2</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                            </select>
-                        </div>
-                        <!-- Camera selector (shown if multiple cameras available) -->
-                        <div id="camera-selection-container" class="mt-2 hidden">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium">Camera</span>
-                                <select id="camera-select" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded px-2 py-1 text-sm"></select>
-                            </div>
-                        </div>
+                    <div id="camera-status" class="mt-3 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-yellow-800 dark:text-yellow-200 text-sm hidden">
+                        <p>Camera access required. Please allow camera permission when prompted.</p>
                     </div>
                     
-                    <div id="debug-info" class="mb-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg hidden">
-                        <h3 class="text-sm font-semibold mb-2">Debug Information</h3>
-                        <div id="debug-text" class="text-xs font-mono bg-gray-200 dark:bg-gray-700 p-2 rounded max-h-32 overflow-y-auto"></div>
-                        <canvas id="debug-capture" class="mt-2 w-full"></canvas>
+                    <div class="mt-3 text-sm text-gray-600 dark:text-gray-400 text-center">
+                        Center the QR code within the guide to scan
                     </div>
                     
                     <div class="flex gap-2 mt-4">
                         <button id="startCameraBtn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                             Start Camera
                         </button>
-                        <button id="scanFileBtn" class="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-3 px-4 rounded-lg transition-colors">
-                            Scan Image
+                        <button id="scanBtn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors" disabled>
+                            Scan Now
                         </button>
                     </div>
-                    <input type="file" id="fileInput" class="hidden" accept="image/*">
-                    
-                    <div class="text-center mt-4 text-sm text-gray-600 dark:text-gray-400">
-                        Position the QR code within the frame and hold steady
+                </div>
+                
+                <!-- File Upload -->
+                <div id="fileScanner" class="scanner-tab hidden">
+                    <div class="flex items-center justify-center w-full">
+                        <label for="qrFileInput" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-10 h-10 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                </svg>
+                                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Tap to upload</span> a photo</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG (MAX. 10MB)</p>
+                            </div>
+                            <input id="qrFileInput" type="file" class="hidden" accept="image/*" capture="environment" />
+                        </label>
                     </div>
                 </div>
                 
                 <!-- Manual Input -->
                 <div id="manualInput" class="scanner-tab hidden">
-                    <div class="space-y-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-                        <h3 class="font-medium">Manual Raw Data Input</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Paste the raw QR code content below if scanning fails:</p>
-                        <textarea id="rawDataInput" rows="6" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm font-mono" placeholder="Paste raw encrypted QR code data here..."></textarea>
-                        <div class="flex items-center">
-                            <label class="mr-2 text-sm">Encryption Key:</label>
-                            <select id="manual-encryption-key" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded px-2 py-1 text-sm">
-                                <option value="3" selected>3 (Default)</option>
-                                <option value="2">2</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                            </select>
-                        </div>
-                        <button id="decodeManualBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    <div class="space-y-4">
+                        <p class="text-sm">Paste the QR code content below:</p>
+                        <textarea id="qrDataInput" rows="5" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-base" placeholder="Paste encrypted QR code data here..."></textarea>
+                        <button id="decodeManualBtn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                             Decode Data
                         </button>
                     </div>
@@ -461,8 +316,8 @@
                         Verified ✓
                     </div>
                 </div>
-                <div id="bookingInfo" class="space-y-3"></div>
-                <button id="backToScannerBtn" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                <div id="bookingInfo" class="space-y-2"></div>
+                <button id="backToScannerBtn" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                     Scan Another Code
                 </button>
             </div>
@@ -471,32 +326,32 @@
             <div id="errorContainer" class="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg shadow-md mt-6 hidden mb-20">
                 <h2 class="text-xl font-semibold mb-2 text-red-700 dark:text-red-400">Error</h2>
                 <p id="errorMessage" class="text-red-600 dark:text-red-300"></p>
-                <div id="errorRawData" class="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono overflow-x-auto max-h-32 hidden"></div>
-                <div class="mt-4 flex space-x-2">
-                    <button id="tryAgainBtn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                        Try Again
-                    </button>
-                    <button id="dismissErrorBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                        Dismiss
-                    </button>
-                </div>
+                <button id="dismissErrorBtn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
+                    Dismiss
+                </button>
             </div>
         </div>
 
-        <!-- Simple version timestamp -->
+        <!-- Version timestamp in footer -->
         <div class="fixed bottom-20 left-0 right-0 text-center text-xs text-gray-500 dark:text-gray-400 py-2">
-            <p>v20250330 2027</p>
+            <p>v20250330-2044</p>
         </div>
 
         <!-- Mobile bottom navigation -->
         <div class="mobile-tab-bar shadow-lg border-t border-gray-200 dark:border-gray-700">
-            <div class="grid grid-cols-2 h-16">
+            <div class="grid grid-cols-3 h-16">
                 <button id="mobileTabCamera" class="flex flex-col items-center justify-center text-primary border-t-2 border-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <span class="text-xs mt-1">Camera</span>
+                </button>
+                <button id="mobileTabFile" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-xs mt-1">Image</span>
                 </button>
                 <button id="mobileTabManual" class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -539,104 +394,35 @@
             document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
         });
 
-        // Caesar cipher decryption function (using shift -3 by default)
-        function caesarDecrypt(text, shift) {
+        // Caesar cipher decryption function (using shift -3)
+        function caesarDecrypt(text, shift = 3) {
             return text.split('').map(char => {
                 const code = char.charCodeAt(0);
                 // Handle uppercase letters
                 if (code >= 65 && code <= 90) {
-                    return String.fromCharCode(((code - 65 + (26 - shift % 26)) % 26) + 65);
+                    return String.fromCharCode(((code - 65 + (26 - shift)) % 26) + 65);
                 }
                 // Handle lowercase letters
                 else if (code >= 97 && code <= 122) {
-                    return String.fromCharCode(((code - 97 + (26 - shift % 26)) % 26) + 97);
+                    return String.fromCharCode(((code - 97 + (26 - shift)) % 26) + 97);
                 }
                 // Return unchanged for non-alphabetic characters
                 return char;
             }).join('');
         }
 
-        // Base64 decoding function with robust error handling
-        function decodeBase64(str) {
+        // Function to decrypt booking data - SIMPLIFIED TO USE ONLY CAESAR CIPHER
+        function decryptBookingData(encryptedData, shift = 3) {
             try {
-                // Attempt to decode - this handles standard base64
-                return decodeURIComponent(atob(str));
-            } catch (e) {
-                // Log the specific error
-                addDebugInfo("Base64 decoding error: " + e.message);
-                
-                try {
-                    // Try without URI decoding - sometimes needed for special characters
-                    const raw = atob(str);
-                    addDebugInfo("Attempted raw decode without URI component");
-                    return raw;
-                } catch (e2) {
-                    // Try to fix common base64 issues
-                    addDebugInfo("Attempting to fix and retry base64 decode");
-                    
-                    // Fix padding if needed
-                    const padded = str.length % 4 === 0 ? str : str + '='.repeat(4 - (str.length % 4));
-                    
-                    try {
-                        return decodeURIComponent(atob(padded));
-                    } catch (e3) {
-                        throw new Error("Unable to decode Base64 data after multiple attempts");
-                    }
-                }
-            }
-        }
-
-        // Function to decrypt booking data with enhanced error handling
-        function decryptBookingData(encryptedData, shift) {
-            addDebugInfo("Attempting to decrypt data with shift: " + shift);
-            
-            try {
-                // Show raw encrypted data in debug
-                addDebugInfo("Raw data: " + encryptedData.substring(0, 50) + "...");
-                
-                // Decode base64
-                const decodedBase64 = decodeBase64(encryptedData);
-                addDebugInfo("Base64 decoded (" + decodedBase64.length + " chars)");
-                
-                // Decrypt Caesar cipher
-                const decrypted = caesarDecrypt(decodedBase64, shift);
-                addDebugInfo("Caesar decrypted: " + decrypted.substring(0, 50) + "...");
-                
-                // Try to parse JSON
-                const parsed = JSON.parse(decrypted);
-                
-                // Validate basic booking structure
-                if (!parsed.customerName || !parsed.seatNumber) {
-                    throw new Error("Missing required booking data fields");
-                }
-                
-                return parsed;
+                console.log('Encrypted data:', encryptedData);
+                // No Base64 decoding needed - directly apply Caesar cipher
+                const decrypted = caesarDecrypt(encryptedData, shift);
+                console.log('Caesar decrypted:', decrypted);
+                return JSON.parse(decrypted);
             } catch (error) {
-                addDebugInfo("Decryption error: " + error.message);
-                
-                // Show more details in debug mode
-                if (document.getElementById('debug-mode').checked) {
-                    try {
-                        const partial = decodeBase64(encryptedData);
-                        const partialDecrypt = caesarDecrypt(partial, shift);
-                        addDebugInfo("Partial decrypt attempt: " + partialDecrypt.substring(0, 100));
-                    } catch (e) {
-                        // Ignore secondary errors
-                    }
-                }
-                
-                throw new Error("Unable to decrypt QR code data. Try changing the encryption key or using manual input.");
+                console.error('Error decrypting data:', error);
+                throw new Error('Unable to decrypt QR code data. This may not be a valid booking QR code.');
             }
-        }
-
-        // Add debug information
-        function addDebugInfo(text) {
-            const debugText = document.getElementById('debug-text');
-            const timestamp = new Date().toLocaleTimeString();
-            debugText.innerHTML += `<div>[${timestamp}] ${text}</div>`;
-            
-            // Auto-scroll to bottom
-            debugText.scrollTop = debugText.scrollHeight;
         }
 
         // Show toast notification
@@ -655,18 +441,12 @@
             // Create new toast
             const toast = document.createElement('div');
             toast.className = `toast-notification toast-${type}`;
-            
-            // Add appropriate icon based on type
-            let icon = '';
-            if (type === 'success') {
-                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>';
-            } else if (type === 'warning') {
-                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>';
-            } else if (type === 'error') {
-                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-            }
-            
-            toast.innerHTML = icon + `<span>${message}</span>`;
+            toast.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>${message}</span>
+            `;
             
             // Add to DOM
             document.body.appendChild(toast);
@@ -679,35 +459,43 @@
             }, 3000);
         }
 
+        // Show scan success indicator
+        function showScanSuccess() {
+            const container = document.getElementById('camera-container');
+            const indicator = document.createElement('div');
+            indicator.className = 'scan-indicator';
+            
+            container.appendChild(indicator);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                if (container.contains(indicator)) {
+                    container.removeChild(indicator);
+                }
+            }, 1000);
+        }
+
         // Function to display booking information
         function displayBookingInfo(booking) {
-            // Hide the scanner section
-            document.getElementById('scanner-section').classList.add('hidden');
-            
             // Show results container with animation
             const resultContainer = document.getElementById('resultContainer');
             resultContainer.classList.remove('hidden');
             resultContainer.classList.add('result-enter');
             
-            // Generate HTML for dishes
+            // Hide scanner section
+            document.getElementById('scanner-section').classList.add('hidden');
+            
+            // Generate HTML for the dishes
             let dishesHtml = '';
-            if (booking.dishes && Array.isArray(booking.dishes) && booking.dishes.length > 0) {
+            if (booking.dishes && Array.isArray(booking.dishes)) {
                 dishesHtml = '<div class="mt-2">';
                 booking.dishes.forEach(dish => {
-                    dishesHtml += `<div class="ml-4 flex justify-between">
-                        <span>• ${dish.name}</span>
-                        <span class="font-medium">${dish.quantity}</span>
-                    </div>`;
+                    dishesHtml += `<div class="ml-4 flex justify-between"><span>• ${dish.name}</span> <span class="font-medium">${dish.quantity}</span></div>`;
                 });
                 dishesHtml += '</div>';
             } else if (booking.selectedDish) {
                 // Legacy format
-                dishesHtml = `<div class="mt-2">
-                    <div class="ml-4 flex justify-between">
-                        <span>• ${booking.selectedDish}</span>
-                        <span class="font-medium">${booking.dishQuantity || 1}</span>
-                    </div>
-                </div>`;
+                dishesHtml = `<div class="mt-2"><div class="ml-4 flex justify-between"><span>• ${booking.selectedDish}</span> <span class="font-medium">${booking.dishQuantity}</span></div></div>`;
             }
             
             // Display booking details
@@ -744,26 +532,47 @@
             `;
         }
 
-        // Function to show error with enhanced details
-        function showError(message, rawData = null) {
-            // Hide scanner section
-            document.getElementById('scanner-section').classList.add('hidden');
-            
-            // Show error container
+        // Function to show error
+        function showError(message) {
             const errorContainer = document.getElementById('errorContainer');
             const errorMessage = document.getElementById('errorMessage');
-            const errorRawData = document.getElementById('errorRawData');
             
             errorContainer.classList.remove('hidden');
             errorMessage.textContent = message;
             
-            // Show raw data if available
-            if (rawData && document.getElementById('debug-mode').checked) {
-                errorRawData.textContent = rawData.length > 300 ? 
-                    rawData.substring(0, 300) + '...' : rawData;
-                errorRawData.classList.remove('hidden');
-            } else {
-                errorRawData.classList.add('hidden');
+            // Hide scanner section
+            document.getElementById('scanner-section').classList.add('hidden');
+        }
+
+        // Function to play success sound
+        function beepSuccess() {
+            try {
+                // Create audio context
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create oscillator for beep sound
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(1500, audioContext.currentTime);
+                
+                // Connect oscillator to gain node and gain node to destination
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Set gain to 0.1 to avoid loud sound
+                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                
+                // Start oscillator
+                oscillator.start();
+                
+                // Stop after 150ms
+                setTimeout(() => {
+                    oscillator.stop();
+                }, 150);
+            } catch (error) {
+                console.log('Audio not supported');
             }
         }
 
@@ -773,10 +582,16 @@
             updateActiveMobileTab('mobileTabCamera');
         });
         
+        document.getElementById('mobileTabFile').addEventListener('click', () => {
+            showTab('fileScanner');
+            updateActiveMobileTab('mobileTabFile');
+            stopCamera();
+        });
+        
         document.getElementById('mobileTabManual').addEventListener('click', () => {
             showTab('manualInput');
             updateActiveMobileTab('mobileTabManual');
-            stopScanner();
+            stopCamera();
         });
         
         function updateActiveMobileTab(activeTabId) {
@@ -807,516 +622,88 @@
             // Show selected tab
             document.getElementById(tabId).classList.remove('hidden');
         }
-        
-        // Debug mode toggle
-        document.getElementById('debug-mode').addEventListener('change', function() {
-            const debugInfo = document.getElementById('debug-info');
-            if (this.checked) {
-                debugInfo.classList.remove('hidden');
-                addDebugInfo("Debug mode enabled");
-            } else {
-                debugInfo.classList.add('hidden');
-            }
-        });
 
-        // Enhanced Camera Variables
-        let video = document.getElementById('scanner-video');
-        let canvas = document.getElementById('scanner-canvas');
-        let ctx = canvas.getContext('2d', { willReadFrequently: true });
+        // Camera handling
+        let video = document.getElementById('camera-view');
+        let canvas = document.getElementById('camera-canvas');
+        let context = canvas.getContext('2d');
         let scanInterval;
         let mediaStream = null;
-        let statusIndicator = document.getElementById('status-indicator');
-        let statusText = document.getElementById('status-text');
-        let consecutiveFailures = 0;
-        let lastSuccessTime = 0;
-        let captureTimeout;
-        let samplingActive = false;
-        let availableCameras = [];
-        let currentCameraIndex = 0;
-        
-        // HTML5QR Code scanner (more reliable than jsQR)
-        let html5QrScanner = null;
-        
-        // Switch camera button
-        const switchCameraBtn = document.getElementById('switch-camera-btn');
-        switchCameraBtn.addEventListener('click', () => {
-            // If we have multiple cameras, stop current and start with next camera
-            if (availableCameras.length > 1) {
-                switchToNextCamera();
-            }
-        });
-        
-        // Function to switch between available cameras
-        function switchToNextCamera() {
-            // Stop current camera
-            stopScanner();
-            
-            // Increment camera index and wrap around if needed
-            currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
-            
-            // Update camera selection dropdown if it exists
-            const cameraSelect = document.getElementById('camera-select');
-            if (cameraSelect && cameraSelect.options.length > currentCameraIndex) {
-                cameraSelect.selectedIndex = currentCameraIndex;
-            }
-            
-            // Start the camera with new index
-            startCamera(availableCameras[currentCameraIndex].deviceId);
-        }
-        
-        // Check if a camera is a back camera based on its label
-        function isBackCamera(cameraLabel) {
-            const backCameraIndicators = [
-                'back', 'rear', 'environment', 'environ', 
-                'exterior', 'external', 'ouside', 'traseira', 
-                'trasera', 'arrière', 'posteriore', 'hinten', 
-                '后置', '後置', '背面', 'задняя'
-            ];
-            
-            if (!cameraLabel) return false;
-            const lowerLabel = cameraLabel.toLowerCase();
-            
-            // Check for back camera indicators in the label
-            return backCameraIndicators.some(indicator => lowerLabel.includes(indicator));
-        }
-        
-        // Select the preferred camera (back camera if available)
-        function selectPreferredCamera(cameras) {
-            // Default to first camera
-            let preferredCamera = cameras[0];
-            let backCameraFound = false;
-            
-            // Look for a back camera
-            for (const camera of cameras) {
-                if (isBackCamera(camera.label)) {
-                    preferredCamera = camera;
-                    backCameraFound = true;
-                    addDebugInfo("Back camera found: " + camera.label);
-                    break;
-                }
-            }
-            
-            // If no obvious back camera, use the second camera (often the back on mobile)
-            if (!backCameraFound && cameras.length > 1) {
-                preferredCamera = cameras[1];
-                addDebugInfo("Using second camera: " + preferredCamera.label);
-            }
-            
-            return preferredCamera;
-        }
-        
-        // Populate camera select dropdown
-        function populateCameraSelection(cameras) {
-            const selectionContainer = document.getElementById('camera-selection-container');
-            const cameraSelect = document.getElementById('camera-select');
-            
-            // Only show selection if we have multiple cameras
-            if (cameras.length <= 1) {
-                selectionContainer.classList.add('hidden');
-                return;
-            }
-            
-            // Clear existing options
-            cameraSelect.innerHTML = '';
-            
-            // Add cameras to dropdown
-            cameras.forEach((camera, index) => {
-                const option = document.createElement('option');
-                option.value = camera.deviceId;
-                
-                // Create a descriptive label
-                let label = camera.label || `Camera ${index + 1}`;
-                
-                // Try to identify back vs front
-                if (isBackCamera(camera.label)) {
-                    label += ' (Back)';
-                } else if (camera.label && camera.label.toLowerCase().includes('front')) {
-                    label += ' (Front)';
-                }
-                
-                option.text = label;
-                cameraSelect.appendChild(option);
-            });
-            
-            // Listen for camera selection changes
-            cameraSelect.addEventListener('change', function() {
-                const selectedIndex = this.selectedIndex;
-                currentCameraIndex = selectedIndex;
-                
-                // Restart camera with selected camera
-                stopScanner();
-                startCamera(cameras[selectedIndex].deviceId);
-            });
-            
-            // Show the selection container
-            selectionContainer.classList.remove('hidden');
-            
-            // Show camera switch button
-            switchCameraBtn.classList.remove('hidden');
-        }
-        
-        // Get all available cameras
-        async function getAvailableCameras() {
-            try {
-                // Request camera permission first
-                await navigator.mediaDevices.getUserMedia({ video: true });
-                
-                // Now enumerate devices
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const cameras = devices.filter(device => device.kind === 'videoinput');
-                
-                if (cameras.length > 0) {
-                    // Debug info about cameras
-                    addDebugInfo(`Found ${cameras.length} cameras`);
-                    cameras.forEach((camera, i) => {
-                        addDebugInfo(`Camera ${i+1}: ${camera.label || 'unnamed'}`);
-                    });
-                    
-                    // Save list of cameras
-                    availableCameras = cameras;
-                    
-                    // Setup camera selection UI
-                    populateCameraSelection(cameras);
-                    
-                    return cameras;
-                } else {
-                    addDebugInfo("No cameras found");
-                    return [];
-                }
-            } catch (error) {
-                addDebugInfo("Error getting cameras: " + error.message);
-                return [];
-            }
-        }
-        
-        // Advanced QR scanning with HTML5-QRCode
-        async function scanQRCodeAdvanced() {
-            if (samplingActive || !video.srcObject) return;
-            samplingActive = true;
-            
-            try {
-                // Use HTML5-QRCode built-in methods with specific config
-                if (!html5QrScanner) {
-                    const scannerElement = document.getElementById('scanner-container');
-                    
-                    // Configure our own HTML5QrScanner instance
-                    html5QrScanner = new Html5Qrcode("scanner-container", { 
-                        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-                    });
-                    
-                    // Get the currently selected camera or the preferred one
-                    let cameraId;
-                    if (availableCameras.length > 0) {
-                        cameraId = availableCameras[currentCameraIndex].deviceId;
-                    } else {
-                        // Fallback to first camera
-                        const cameras = await Html5Qrcode.getCameras();
-                        if (cameras.length > 0) {
-                            cameraId = cameras[0].id;
-                        } else {
-                            throw new Error("No cameras available");
-                        }
-                    }
-                    
-                    if (cameraId) {
-                        const config = {
-                            fps: 10,
-                            qrbox: { width: 250, height: 250 },
-                            aspectRatio: 1,
-                            // Explicitly set to not flip the image
-                            disableFlip: true
-                        };
-                        
-                        html5QrScanner.start(
-                            cameraId, 
-                            config,
-                            (decodedText) => {
-                                processScanResult(decodedText);
-                                html5QrScanner.pause();
-                            },
-                            (errorMessage) => {
-                                // Ignore most scan errors as they're expected during scanning
-                                if (errorMessage.includes("No QR code found")) {
-                                    return;
-                                }
-                                addDebugInfo("Scan error: " + errorMessage);
-                            }
-                        );
-                    }
-                }
-            } catch (e) {
-                addDebugInfo("Error during advanced scan: " + e.message);
-                updateStatus("Scan error. Retrying...", "error");
-            } finally {
-                samplingActive = false;
-            }
-        }
-        
-        // Process the scan result
-        function processScanResult(rawData) {
-            try {
-                // Pause scanning
-                if (scanInterval) {
-                    clearInterval(scanInterval);
-                    scanInterval = null;
-                }
-                
-                // Try decrypting with the selected encryption key
-                const shiftKey = parseInt(document.getElementById('encryption-key').value, 10);
-                updateStatus("QR code detected! Decrypting...", "success");
-                
-                const bookingData = decryptBookingData(rawData, shiftKey);
-                
-                // Success! Show a toast and the booking info
-                showToast("Booking verified successfully!");
-                
-                // Display the booking details
-                setTimeout(() => {
-                    displayBookingInfo(bookingData);
-                }, 500);
-            } catch (error) {
-                addDebugInfo("Process error: " + error.message);
-                
-                // If we're in advanced mode, try other keys
-                if (document.getElementById('advanced-mode').checked) {
-                    addDebugInfo("Attempting with alternate shift keys...");
-                    
-                    // Try other common shift keys
-                    for (let alternateKey of [3, 4, 2, 5]) {
-                        if (alternateKey === parseInt(document.getElementById('encryption-key').value, 10)) continue;
-                        
-                        try {
-                            addDebugInfo(`Trying with key ${alternateKey}...`);
-                            const bookingData = decryptBookingData(rawData, alternateKey);
-                            
-                            // If we get here, it worked
-                            showToast(`Decrypted successfully with key ${alternateKey}!`, "success");
-                            document.getElementById('encryption-key').value = alternateKey.toString();
-                            
-                            // Display the booking details
-                            setTimeout(() => {
-                                displayBookingInfo(bookingData);
-                            }, 500);
-                            return;
-                        } catch (e) {
-                            addDebugInfo(`Failed with key ${alternateKey}: ${e.message}`);
-                        }
-                    }
-                }
-                
-                // If we get here, all decryption attempts failed
-                showError("Failed to decrypt the QR code. Try a different encryption key or the manual input.", rawData);
-                updateStatus("Decryption failed. Try again.", "error");
-                
-                // Restart scanning after a brief pause
-                setTimeout(() => {
-                    if (!scanInterval && video.srcObject && html5QrScanner) {
-                        html5QrScanner.resume();
-                        scanInterval = setInterval(scanQRCodeAdvanced, 800);
-                    }
-                }, 1500);
-            }
-        }
-        
-        // File scanning function
-        async function scanImageFile(file) {
-            if (!file) return;
-            
-            try {
-                // Show status
-                updateStatus("Processing image...");
-                
-                // Create a temporary instance just for file scanning
-                const tempScanner = new Html5Qrcode("scanner-container");
-                
-                tempScanner.scanFile(file, true)
-                    .then(decodedText => {
-                        processScanResult(decodedText);
-                    })
-                    .catch(error => {
-                        addDebugInfo("Image scan error: " + error);
-                        showError("No QR code found in the image. Try a clearer image with better lighting.");
-                        updateStatus("Image scan failed", "error");
-                    });
-            } catch (error) {
-                addDebugInfo("File scan error: " + error.message);
-                showError("Could not process the image. " + error.message);
-                updateStatus("File scan failed", "error");
-            }
-        }
-        
-        // Update status indicator
-        function updateStatus(message, type = "normal") {
-            statusIndicator.classList.remove('hidden');
-            
-            // Clear any existing classes
-            statusIndicator.className = 'status-indicator';
-            
-            // Add type-specific classes
-            if (type === "warning") {
-                statusIndicator.classList.add('bg-yellow-600/80');
-            } else if (type === "error") {
-                statusIndicator.classList.add('bg-red-600/80');
-            } else if (type === "success") {
-                statusIndicator.classList.add('bg-green-600/80');
-            } else {
-                statusIndicator.classList.add('bg-black/60');
-            }
-            
-            // Add spinner for normal status
-            if (type === "normal") {
-                statusText.innerHTML = `<span class="loading-spinner"></span>${message}`;
-            } else {
-                statusText.textContent = message;
-            }
-        }
         
         // Start Camera button
-        document.getElementById('startCameraBtn').addEventListener('click', async () => {
-            // Discover available cameras first
-            await getAvailableCameras();
-            
-            // Start with preferred camera
-            if (availableCameras.length > 0) {
-                const preferredCamera = selectPreferredCamera(availableCameras);
-                currentCameraIndex = availableCameras.indexOf(preferredCamera);
-                startCamera(preferredCamera.deviceId);
-            } else {
-                // Fallback to default camera
-                startCamera();
-            }
-        });
+        document.getElementById('startCameraBtn').addEventListener('click', startCamera);
         
-        // Scan File button
-        document.getElementById('scanFileBtn').addEventListener('click', () => {
-            document.getElementById('fileInput').click();
-        });
+        // Manual scan button
+        document.getElementById('scanBtn').addEventListener('click', scanQRCode);
         
-        // File input change handler
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                scanImageFile(file);
-            }
-        });
-        
-        // Start the camera with specific deviceId (if provided)
-        function startCamera(deviceId = null) {
+        // Start the camera
+        function startCamera() {
             const startBtn = document.getElementById('startCameraBtn');
+            const scanBtn = document.getElementById('scanBtn');
+            const statusMsg = document.getElementById('camera-status');
             
             // Update button state
             startBtn.disabled = true;
-            startBtn.innerHTML = '<span class="loading-spinner"></span> Starting camera...';
-            updateStatus("Initializing camera...");
+            startBtn.innerHTML = '<div class="loading-spinner"></div> Starting camera...';
+            statusMsg.classList.remove('hidden');
             
-            // Reset debug info
-            if (document.getElementById('debug-mode').checked) {
-                document.getElementById('debug-text').innerHTML = '';
-                document.getElementById('debug-capture').style.display = 'none';
-            }
-            
-            // Stop any existing streams
-            stopScanner();
-            
-            // Set up camera constraints
-            let constraints = {
-                video: {
-                    // Always try to use the back camera first
-                    facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    frameRate: { ideal: 30 },
-                    // Enable advanced capabilities if available
-                    advanced: [
-                        { focusMode: "continuous" }
-                    ]
-                }
-            };
-            
-            // If a specific device ID is provided, use it directly
-            if (deviceId) {
-                constraints.video.deviceId = { exact: deviceId };
-                addDebugInfo("Using specific camera: " + deviceId);
-                // Remove facingMode constraint to avoid conflicts
-                delete constraints.video.facingMode;
-            } else {
-                addDebugInfo("Using environment-facing camera (rear camera)");
-            }
-            
-            // Access the camera
+            // Set up camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia(constraints)
+                // Request camera access with specific constraints for iOS
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment', // Use back camera
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                })
                 .then(function(stream) {
                     mediaStream = stream;
                     video.srcObject = stream;
                     
-                    // Get the actual camera being used
-                    const videoTrack = stream.getVideoTracks()[0];
-                    addDebugInfo("Camera initialized: " + videoTrack.label);
-                    
-                    // Set canvas dimensions based on video feed
+                    // Set canvas dimensions based on video dimensions
                     video.onloadedmetadata = function() {
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         
-                        addDebugInfo(`Video dimensions: ${canvas.width}x${canvas.height}`);
-                        
-                        // Update button
+                        // Update UI
+                        startBtn.innerHTML = 'Restart Camera';
                         startBtn.disabled = false;
-                        startBtn.textContent = 'Restart Camera';
+                        scanBtn.disabled = false;
+                        statusMsg.classList.add('hidden');
                         
-                        // Start the enhanced scanner
-                        updateStatus("Camera ready. Scanning for QR codes...");
-                        scanInterval = setInterval(scanQRCodeAdvanced, 800); 
-                    };
-                    
-                    // Handle video play errors
-                    video.onerror = function(e) {
-                        addDebugInfo(`Video error: ${e}`);
-                        updateStatus("Video error. Try restarting.", "error");
+                        // Start continuous scanning
+                        scanInterval = setInterval(scanQRCode, 500);
                     };
                     
                     return video.play();
                 })
                 .catch(function(error) {
-                    addDebugInfo(`Camera access error: ${error.name} - ${error.message}`);
                     console.error('Camera access error:', error);
-                    
+                    startBtn.innerHTML = 'Start Camera';
                     startBtn.disabled = false;
-                    startBtn.textContent = 'Start Camera';
                     
-                    // Try fallback if we were using a deviceId
-                    if (deviceId) {
-                        addDebugInfo("Trying fallback to any available camera");
-                        showToast("Could not access selected camera. Trying default camera.", "warning");
-                        startCamera(); // Retry without specific deviceId
-                        return;
-                    }
+                    statusMsg.innerHTML = `
+                        <p>❗ Camera access denied or error.</p>
+                        <p class="mt-1">Try using the Image or Manual input options instead.</p>
+                    `;
                     
-                    // Specific error handling
-                    if (error.name === 'NotAllowedError') {
-                        updateStatus("Camera access denied. Check permissions.", "error");
-                    } else if (error.name === 'NotFoundError') {
-                        updateStatus("No camera found on this device.", "error");
-                    } else {
-                        updateStatus("Camera error: " + error.message, "error");
-                    }
-                    
-                    showToast("Camera access error. Try using the Manual input tab instead.", "error");
+                    showToast("Camera access error. Try the Image or Manual tab instead.", "error");
                 });
             } else {
-                addDebugInfo("getUserMedia not supported");
-                updateStatus("Camera not supported in this browser", "error");
+                statusMsg.innerHTML = `
+                    <p>❗ Camera not supported in this browser.</p>
+                    <p class="mt-1">Try using the Image or Manual input options instead.</p>
+                `;
+                startBtn.innerHTML = 'Camera Unavailable';
+                startBtn.disabled = true;
                 
-                startBtn.disabled = false;
-                startBtn.textContent = 'Camera Unavailable';
-                
-                showToast("Camera not supported. Try using the Manual input tab instead.", "error");
+                showToast("Camera not supported. Try the Image or Manual tab instead.", "error");
             }
         }
         
         // Stop the camera
-        function stopScanner() {
+        function stopCamera() {
             if (scanInterval) {
                 clearInterval(scanInterval);
                 scanInterval = null;
@@ -1328,60 +715,133 @@
                 video.srcObject = null;
             }
             
-            if (captureTimeout) {
-                clearTimeout(captureTimeout);
-                captureTimeout = null;
-            }
-            
-            if (html5QrScanner) {
-                try {
-                    html5QrScanner.stop().catch(error => {
-                        console.error("Error stopping scanner:", error);
-                    });
-                    html5QrScanner = null;
-                } catch (e) {
-                    // Ignore stop errors
-                }
-            }
-            
-            // Reset state
-            samplingActive = false;
-            consecutiveFailures = 0;
-            
-            // Reset status
-            updateStatus("Camera stopped", "normal");
-            
             // Reset UI
             const startBtn = document.getElementById('startCameraBtn');
-            startBtn.textContent = 'Start Camera';
+            const scanBtn = document.getElementById('scanBtn');
+            
+            startBtn.innerHTML = 'Start Camera';
             startBtn.disabled = false;
+            scanBtn.disabled = true;
+        }
+        
+        // Scan for QR codes
+        function scanQRCode() {
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+                return;
+            }
+            
+            // Draw current video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get image data from canvas
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Scan for QR code
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            
+            if (code) {
+                // Clear the scan interval
+                if (scanInterval) {
+                    clearInterval(scanInterval);
+                    scanInterval = null;
+                }
+                
+                // Show success indicators
+                showScanSuccess();
+                showToast("QR Code successfully scanned!");
+                beepSuccess();
+                
+                try {
+                    // Process the QR code data
+                    const bookingData = decryptBookingData(code.data);
+                    
+                    // Display the booking details
+                    setTimeout(() => {
+                        displayBookingInfo(bookingData);
+                    }, 500);
+                } catch (error) {
+                    showError(error.message || "Failed to process QR code data");
+                    
+                    // Restart scanning after error
+                    if (!scanInterval) {
+                        scanInterval = setInterval(scanQRCode, 500);
+                    }
+                }
+            }
         }
 
-        // Manual decoding button
-        document.getElementById('decodeManualBtn').addEventListener('click', function() {
-            const rawData = document.getElementById('rawDataInput').value.trim();
-            if (!rawData) {
-                showToast("Please enter the raw QR code data", "error");
+        // File input handling
+        document.getElementById('qrFileInput').addEventListener('change', event => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Create canvas to process the image
+                    const tempCanvas = document.createElement('canvas');
+                    const tempContext = tempCanvas.getContext('2d');
+                    
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    tempContext.drawImage(img, 0, 0, img.width, img.height);
+                    
+                    // Get image data
+                    const imageData = tempContext.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    
+                    // Scan for QR code
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert",
+                    });
+                    
+                    if (code) {
+                        // Show success indicators
+                        showToast("QR Code successfully scanned from image!");
+                        beepSuccess();
+                        
+                        try {
+                            // Process the QR code data
+                            const bookingData = decryptBookingData(code.data);
+                            
+                            // Display the booking details
+                            setTimeout(() => {
+                                displayBookingInfo(bookingData);
+                            }, 500);
+                        } catch (error) {
+                            showError(error.message || "Failed to process QR code data");
+                        }
+                    } else {
+                        showError("No QR code found in the image. Please try with a clearer image.");
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Manual input handling
+        document.getElementById('decodeManualBtn').addEventListener('click', () => {
+            const qrData = document.getElementById('qrDataInput').value.trim();
+            if (!qrData) {
+                showError("Please enter QR code data.");
                 return;
             }
             
             try {
-                const shiftKey = parseInt(document.getElementById('manual-encryption-key').value, 10);
+                const bookingData = decryptBookingData(qrData);
                 
-                // Try to decrypt and parse the data
-                addDebugInfo("Attempting manual decode with shift key: " + shiftKey);
-                const bookingData = decryptBookingData(rawData, shiftKey);
+                // Show success notification
+                showToast("QR Code data successfully decoded!");
+                beepSuccess();
                 
-                // Success
-                showToast("Booking data decoded successfully!", "success");
-                
-                // Display the booking details
                 setTimeout(() => {
                     displayBookingInfo(bookingData);
                 }, 500);
             } catch (error) {
-                addDebugInfo("Manual decode error: " + error.message);
-                showError(error.message, rawData);
+                showError(error.message);
             }
         });
 
@@ -1391,12 +851,6 @@
             document.getElementById('resultContainer').classList.remove('result-enter');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
-            
-            // Restart scanning if camera was active
-            if (video.srcObject) {
-                // Restart scanner
-                startCamera();
-            }
         });
 
         // Dismiss error button
@@ -1404,39 +858,6 @@
             document.getElementById('errorContainer').classList.add('hidden');
             document.getElementById('scanner-section').classList.remove('hidden');
             showTab('cameraScanner');
-            
-            // Restart scanning if camera was active
-            if (video.srcObject) {
-                // Restart scanner
-                startCamera(); 
-            }
-        });
-        
-        // Try again button (retry with current data)
-        document.getElementById('tryAgainBtn').addEventListener('click', () => {
-            const rawDataElement = document.getElementById('errorRawData');
-            if (rawDataElement.textContent) {
-                // Copy the raw data to the manual input
-                document.getElementById('rawDataInput').value = rawDataElement.textContent;
-                
-                // Switch to manual tab
-                showTab('manualInput');
-                updateActiveMobileTab('mobileTabManual');
-                stopScanner();
-                
-                // Show helpful toast
-                showToast("Try changing the encryption key value", "warning");
-            } else {
-                // No raw data, just go back to scanning
-                document.getElementById('errorContainer').classList.add('hidden');
-                document.getElementById('scanner-section').classList.remove('hidden');
-                showTab('cameraScanner');
-                
-                // Restart scanning
-                if (video.srcObject) {
-                    startCamera();
-                }
-            }
         });
     </script>
 </body>
